@@ -2,12 +2,6 @@
 > **Azure edition** of [Wealth-agentic-rag](https://github.com/joinsrikanth945/Wealth-agentic-rag): the same agent, tests and evaluation, with the AI models running on **Azure OpenAI**. One setting switches between OpenAI and Azure OpenAI.
 
 
-[![CI/CD](https://github.com/joinsrikanth945/Wealth-agentic-rag/actions/workflows/tests.yml/badge.svg)](https://github.com/joinsrikanth945/Wealth-agentic-rag/actions/workflows/tests.yml)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=joinsrikanth945_Wealth-agentic-rag&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=joinsrikanth945_Wealth-agentic-rag)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=joinsrikanth945_Wealth-agentic-rag&metric=coverage)](https://sonarcloud.io/summary/new_code?id=joinsrikanth945_Wealth-agentic-rag)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=joinsrikanth945_Wealth-agentic-rag&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=joinsrikanth945_Wealth-agentic-rag)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=joinsrikanth945_Wealth-agentic-rag&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=joinsrikanth945_Wealth-agentic-rag)
-
 **Live demo:** https://agentic-rag.wittybeach-2baef286.eastus2.azurecontainerapps.io
 
 An agentic Retrieval-Augmented Generation (RAG) assistant that answers staff questions about wealth banking platforms and secure access, using the organization's own documents first and the public web only when the documents fall short.
