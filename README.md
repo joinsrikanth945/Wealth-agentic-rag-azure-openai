@@ -1,4 +1,6 @@
-# Agentic RAG Assistant for Wealth Banking Support
+
+> **Azure edition** of [Wealth-agentic-rag](https://github.com/joinsrikanth945/Wealth-agentic-rag): the same agent, tests and evaluation, with the AI models running on **Azure OpenAI**. One setting switches between OpenAI and Azure OpenAI.
+
 
 [![CI/CD](https://github.com/joinsrikanth945/Wealth-agentic-rag/actions/workflows/tests.yml/badge.svg)](https://github.com/joinsrikanth945/Wealth-agentic-rag/actions/workflows/tests.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=joinsrikanth945_Wealth-agentic-rag&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=joinsrikanth945_Wealth-agentic-rag)
@@ -119,8 +121,8 @@ Documents go through the same steps whether they come from the sample folder or 
 | Layer | Technology |
 |---|---|
 | Agent workflow | LangGraph, LangChain |
-| LLM | OpenAI `gpt-4o-mini` |
-| Embeddings | OpenAI `text-embedding-3-small` |
+|| LLM | OpenAI `gpt-4o-mini` or Azure OpenAI `gpt-4.1-mini` |
+| Embeddings | `text-embedding-3-small` (OpenAI or Azure OpenAI) |
 | Vector store | Pinecone |
 | Web search | Tavily |
 | Backend API | FastAPI, Uvicorn |
@@ -134,6 +136,33 @@ Documents go through the same steps whether they come from the sample folder or 
 | Deployment | Docker, Docker Hub, Azure Container Apps |
 
 ---
+
+## Azure OpenAI
+
+The app can use OpenAI directly or Azure OpenAI, chosen by one setting:
+
+| Setting | Value |
+|---|---|
+| `LLM_PROVIDER` | `openai` (default) or `azure` |
+| `AZURE_OPENAI_ENDPOINT` | Endpoint of the Azure OpenAI resource |
+| `AZURE_OPENAI_API_KEY` | Key of the Azure OpenAI resource |
+| `AZURE_OPENAI_API_VERSION` | For example `2024-10-21` |
+| `AZURE_OPENAI_CHAT_DEPLOYMENT` | Chat model deployment, for example `gpt-4.1-mini` |
+| `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` | Embedding deployment, for example `text-embedding-3-small` |
+
+**Setup in Azure:** create an Azure OpenAI resource, then deploy a chat model and `text-embedding-3-small` in Azure AI Foundry. The embedding model is the same as on OpenAI (1536 dimensions), so the existing Pinecone data works without re-ingesting.
+
+**Model note:** `gpt-4o-mini` is being retired on Azure, so this edition uses `gpt-4.1-mini`.
+
+### Results
+
+| Provider | Chat model | Evaluation |
+|---|---|---|
+| OpenAI | gpt-4o-mini | 18/18 |
+| Azure OpenAI | gpt-4.1-mini | 18/18 |
+
+Both providers pass every case. On the trap question, gpt-4.1-mini used web search where gpt-4o-mini stopped with "insufficient evidence"; neither invented a fee. Re-running the evaluation after a model change catches behavior changes like this.
+
 
 ## Project structure
 
