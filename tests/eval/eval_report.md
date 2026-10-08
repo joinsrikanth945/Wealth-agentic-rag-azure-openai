@@ -1,9 +1,9 @@
 # Answer-quality evaluation report
 
-- **Date:** 2026-10-08 22:04
-- **Commit:** `b0774b1`
-- **Pinecone namespace:** `public-demo`
-- **Duration:** 60 s
+- **Date:** 2026-10-08 23:53
+- **Commit:** `84fa80c`
+- **Pinecone namespace:** `azure-demo`
+- **Duration:** 51 s
 - **Result:** 18/18 cases passed (100%); threshold 85% → **PASS**
 
 | Check | Passed |
@@ -33,4 +33,4 @@
 | scanned-fee-waiver | PASS | PASS | PASS | PASS |   -  | private_kb |
 | route-greeting |   -  |   -  | PASS |   -  |   -  | direct |
 | route-web |   -  |   -  | PASS |   -  |   -  | web_search |
-| trap-crypto-custody |   -  |   -  | PASS |   -  | PASS | insufficient_evidence |
+| trap-crypto-custody |   -  |   -  | PASS |   -  | PASS | web_search |

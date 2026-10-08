@@ -21,9 +21,15 @@ class Settings(BaseSettings):
     upload_dir: str = str(BASE_DIR / "uploads")
     sample_kb_dir: str = str(BASE_DIR / "data" / "sample_kb")
 
+    # Which AI provider to use: "openai" (default) or "azure"
+    llm_provider: str = "openai"
+    azure_openai_endpoint: str = ""
+    azure_openai_api_key: str = ""
+    azure_openai_api_version: str = "2024-10-21"
+    azure_openai_chat_deployment: str = "gpt-4.1-mini"
+    azure_openai_embedding_deployment: str = "text-embedding-3-small"
+
     model_config = SettingsConfigDict(env_file=str(BASE_DIR / ".env"), extra="ignore")
-
-
 
 
 @lru_cache

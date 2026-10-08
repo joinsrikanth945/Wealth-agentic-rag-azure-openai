@@ -1,6 +1,6 @@
 import logging
 from typing import Literal
-from langchain_openai import ChatOpenAI
+from langchain_openai import AzureChatOpenAI, ChatOpenAI
 from langchain_tavily import TavilySearch
 from langgraph.graph import StateGraph, START, END
 from app.core.config import get_settings
@@ -16,13 +16,24 @@ _web_search = None
 def llm():
     global _llm
     if _llm is None:
-        if not settings.openai_api_key:
-            raise RuntimeError("OPENAI_API_KEY is missing")
-        _llm = ChatOpenAI(
-            model=settings.openai_model,
-            temperature=0,
-            api_key=settings.openai_api_key,
-        )
+        if settings.llm_provider.lower() == "azure":
+            if not settings.azure_openai_endpoint or not settings.azure_openai_api_key:
+                raise RuntimeError("AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_API_KEY is missing")
+            _llm = AzureChatOpenAI(
+                azure_deployment=settings.azure_openai_chat_deployment,
+                azure_endpoint=settings.azure_openai_endpoint,
+                api_key=settings.azure_openai_api_key,
+                api_version=settings.azure_openai_api_version,
+                temperature=0,
+            )
+        else:
+            if not settings.openai_api_key:
+                raise RuntimeError("OPENAI_API_KEY is missing")
+            _llm = ChatOpenAI(
+                model=settings.openai_model,
+                temperature=0,
+                api_key=settings.openai_api_key,
+            )
     return _llm
 
 def web_search_tool():
