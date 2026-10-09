@@ -19,3 +19,5 @@ Agentic-RAG-demo
 docs
 *.ipynb
 google-credentials.json
+monitoring
+docker-compose.yml

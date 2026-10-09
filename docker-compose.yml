@@ -1,0 +1,43 @@
+# Local monitoring stack: the app + Prometheus + Grafana
+#   docker compose up -d --build
+#   App:        http://localhost:8080
+#   Prometheus: http://localhost:9090   (check Status > Targets: agentic-rag should be UP)
+#   Grafana:    http://localhost:3000   (user admin, password from GRAFANA_PASSWORD or "change-me")
+
+services:
+  app:
+    build: .
+    env_file: .env
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - app
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-change-me}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:

@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # The agentic RAG app (service "app" in docker-compose.yml)
+  - job_name: agentic-rag
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["app:8080"]
+
+  # Prometheus monitoring itself
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

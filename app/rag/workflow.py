@@ -6,6 +6,9 @@ from langgraph.graph import StateGraph, START, END
 from app.core.config import get_settings
 from app.rag.state import AgentState, RouteDecision, EvidenceGrade
 from app.rag.vectorstore import get_retriever
+from app.rag.metrics import (
+    QUESTIONS, ANSWER_PATH, QUERY_REWRITES, EVIDENCE_GRADE, timed,
+)
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -53,6 +56,7 @@ def web_search_tool():
 def add_trace(state: AgentState, message: str):
     return [*state.get("trace", []), message]
 
+@timed("route")
 def route_question(state: AgentState):
     router = llm().with_structured_output(RouteDecision, method="json_mode")
     decision = router.invoke(f"""
@@ -69,10 +73,12 @@ Return valid JSON like {{"route":"kb"}}.
 def route_after_router(state: AgentState) -> Literal["retrieve_kb", "direct_answer"]:
     return "retrieve_kb" if state["source_used"] == "kb" else "direct_answer"
 
+@timed("retrieve_kb")
 def retrieve_kb(state: AgentState):
     docs = get_retriever().invoke(state["current_query"])
     return {"kb_docs": docs, "trace": add_trace(state, f"Private KB retrieval → {len(docs)} chunks")}
 
+@timed("grade_kb")
 def grade_kb(state: AgentState):
     grader = llm().with_structured_output(EvidenceGrade, method="json_mode")
     context = "\n\n".join(f"Source: {d.metadata.get('source','unknown')}\n{d.page_content}" for d in state["kb_docs"])
@@ -87,11 +93,13 @@ even if the evidence covers a similar or more general case.
 Example: a general custody fee does not answer a question about the custody fee for crypto assets.
 Otherwise return weak. JSON: {{"grade":"good"}} or {{"grade":"weak"}}.
 """)
+    EVIDENCE_GRADE.labels(source="kb", grade=grade.grade).inc()
     return {"kb_grade": grade.grade, "trace": add_trace(state, f"KB evidence grade → {grade.grade.upper()}")}
 
 def after_kb(state: AgentState) -> Literal["generate_from_kb", "search_web"]:
     return "generate_from_kb" if state["kb_grade"] == "good" else "search_web"
 
+@timed("web_search")
 def search_web(state: AgentState):
     result = web_search_tool().invoke({"query": state["current_query"]})
     lines, citations = [], []
@@ -111,6 +119,7 @@ def search_web(state: AgentState):
         "trace": add_trace(state, "Web fallback → Tavily search"),
     }
 
+@timed("grade_web")
 def grade_web(state: AgentState):
     grader = llm().with_structured_output(EvidenceGrade, method="json_mode")
     grade = grader.invoke(f"""
@@ -119,6 +128,7 @@ Web evidence:\n{state['web_results']}
 Return good if the evidence is sufficient and directly relevant; otherwise weak.
 Return valid JSON like {{"grade":"good"}}.
 """)
+    EVIDENCE_GRADE.labels(source="web", grade=grade.grade).inc()
     return {"web_grade": grade.grade, "trace": add_trace(state, f"Web evidence grade → {grade.grade.upper()}")}
 
 def after_web(state: AgentState) -> Literal["generate_from_web", "rewrite_query", "insufficient"]:
@@ -128,18 +138,21 @@ def after_web(state: AgentState) -> Literal["generate_from_web", "rewrite_query"
         return "rewrite_query"
     return "insufficient"
 
+@timed("rewrite")
 def rewrite_query(state: AgentState):
     rewritten = llm().invoke(f"""
 Rewrite this wealth banking support question for better private knowledge retrieval and vendor web search.
 Preserve intent, add useful technical keywords, do not answer, return only the query.
 Question: {state['question']}
 """).content.strip()
+    QUERY_REWRITES.inc()
     return {
         "current_query": rewritten,
         "retry_count": state["retry_count"] + 1,
         "trace": add_trace(state, f"Query rewrite → {rewritten}"),
     }
 
+@timed("generate_kb")
 def generate_from_kb(state: AgentState):
     context = "\n\n".join(f"[Source: {d.metadata.get('source','unknown')}]\n{d.page_content}" for d in state["kb_docs"])
     answer = llm().invoke(f"""
@@ -158,21 +171,27 @@ Question: {state['question']}\n\nPrivate KB:\n{context}
         if src not in seen:
             seen.add(src)
             citations.append({"title": src.split("/")[-1], "url": "", "type": "private_kb"})
+    ANSWER_PATH.labels(path="kb").inc()
     return {"answer": answer, "source_used": "private_kb", "citations": citations, "trace": add_trace(state, "Answer generation → PRIVATE KB")}
 
+@timed("generate_web")
 def generate_from_web(state: AgentState):
     answer = llm().invoke(f"""
 You are a wealth banking support copilot. The private company KB was insufficient.
 Answer ONLY from the web evidence below. Clearly say this is external web information and may need IT validation before changing company-managed systems.
 Question: {state['question']}\n\nWeb evidence:\n{state['web_results']}
 """).content
+    ANSWER_PATH.labels(path="web").inc()
     return {"answer": answer, "source_used": "web_search", "trace": add_trace(state, "Answer generation → WEB SEARCH")}
 
+@timed("direct")
 def direct_answer(state: AgentState):
     answer = llm().invoke(f"Respond briefly and naturally to: {state['question']}").content
+    ANSWER_PATH.labels(path="direct").inc()
     return {"answer": answer, "source_used": "direct", "trace": add_trace(state, "Direct response → no retrieval")}
 
 def insufficient(state: AgentState):
+    ANSWER_PATH.labels(path="insufficient").inc()
     return {
         "answer": "I couldn't find enough reliable evidence in the company knowledge base or external search to answer confidently. Please contact the Service Desk or provide more details.",
         "source_used": "insufficient_evidence",
@@ -217,6 +236,7 @@ def build_graph():
 agent_graph = build_graph()
 
 def ask(question: str):
+    QUESTIONS.inc()
     initial: AgentState = {
         "question": question,
         "current_query": question,
