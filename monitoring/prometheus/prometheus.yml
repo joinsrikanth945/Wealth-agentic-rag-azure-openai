@@ -13,3 +13,9 @@ scrape_configs:
   - job_name: prometheus
     static_configs:
       - targets: ["localhost:9090"]
+
+  - job_name: agentic-rag-azure
+    scheme: https
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["agentic-rag.wittybeach-2baef286.eastus2.azurecontainerapps.io"]
