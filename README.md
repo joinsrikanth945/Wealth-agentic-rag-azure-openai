@@ -1,8 +1,8 @@
+# Agentic RAG Assistant for Wealth Banking Support (Azure OpenAI edition)
 
 > **Azure edition** of [Wealth-agentic-rag](https://github.com/joinsrikanth945/Wealth-agentic-rag): the same agent, tests and evaluation, with the AI models running on **Azure OpenAI**. One setting switches between OpenAI and Azure OpenAI.
 
-
-**Live demo:** https://agentic-rag.wittybeach-2baef286.eastus2.azurecontainerapps.io
+**Live demo (original OpenAI version):** https://agentic-rag.wittybeach-2baef286.eastus2.azurecontainerapps.io
 
 An agentic Retrieval-Augmented Generation (RAG) assistant that answers staff questions about wealth banking platforms and secure access, using the organization's own documents first and the public web only when the documents fall short.
 
@@ -115,7 +115,7 @@ Documents go through the same steps whether they come from the sample folder or 
 | Layer | Technology |
 |---|---|
 | Agent workflow | LangGraph, LangChain |
-|| LLM | OpenAI `gpt-4o-mini` or Azure OpenAI `gpt-4.1-mini` |
+| LLM | OpenAI `gpt-4o-mini` or Azure OpenAI `gpt-4.1-mini` |
 | Embeddings | `text-embedding-3-small` (OpenAI or Azure OpenAI) |
 | Vector store | Pinecone |
 | Web search | Tavily |
@@ -268,11 +268,11 @@ The project has 45 automated tests, run with pytest on every push through GitHub
 | Ingestion | `tests/test_ingestion.py` | Loading text, Markdown and Word files; chunking; source tracking; OCR of scanned PDFs and images (using a generated scan with known text); normal PDFs skip OCR |
 | API | `tests/test_api.py` | Health check, home page, chat error handling, upload security (admin key) and file-type validation |
 | Agent workflow | `tests/test_workflow.py` | Every routing decision and path: direct answer, documents, web fallback, query rewrite and retry, honest stop |
+| Evaluation scorer | `tests/test_eval_scoring.py` | The answer-quality scorer itself: it must fail wrong facts, wrong sources, wrong paths, ungrounded answers and invented figures |
+| End-to-end (Python) | `tests/e2e/test_demo_e2e.py` | 5 Playwright tests in a real Chromium browser against the deployed app: page loads, a document answer with citation and trace, a direct answer, the issue #1 trap question, and upload refused without the admin key. Run after every deployment |
 
 The workflow tests replace OpenAI, Pinecone and Tavily with fakes that return scripted answers, so they are fast, free and deterministic, and need no API keys.
 
-| End-to-end (browser) | `tests/e2e/test_demo_e2e.py` | 5 Playwright tests in a real Chromium browser against the deployed app: page loads, a document answer with citation and trace, a direct answer, the issue #1 trap question, and upload refused without the admin key. Run after every deployment |
-| Evaluation scorer | `tests/test_eval_scoring.py` | The answer-quality scorer itself: it must fail wrong facts, wrong sources, wrong paths, ungrounded answers and invented figures |
 
 Run them locally:
 
