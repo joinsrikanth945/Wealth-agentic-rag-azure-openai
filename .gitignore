@@ -227,3 +227,7 @@ data/audit.db
 
 # Allow the fictional sample documents (including the scanned sample PDF)
 !data/sample_kb/*.pdf
+
+# Local backups of secrets (e.g. .env.backup)
+.env.*
+!.env.example

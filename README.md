@@ -6,7 +6,7 @@
 
 An agentic Retrieval-Augmented Generation (RAG) assistant that answers staff questions about wealth banking platforms and secure access, using the organization's own documents first and the public web only when the documents fall short.
 
-Built with **LangGraph, FastAPI, OpenAI, Pinecone and Tavily**, with a web interface for chatting, uploading documents and inspecting how the agent reached each answer. Tested with **pytest** and delivered through a **CI/CD and DevSecOps pipeline** (GitHub Actions, SonarQube Cloud, gitleaks, pip-audit, Trivy) that deploys automatically to **Azure Container Apps**.
+Built with **LangGraph, FastAPI, OpenAI, Pinecone and Tavily**, with a web interface for chatting, uploading documents and inspecting how the agent reached each answer. Tested with **pytest** and delivered through a **CI/CD and DevSecOps pipeline** (GitHub Actions, SonarQube Cloud, gitleaks, pip-audit, Trivy) that deploys automatically to **Azure Container Apps**. The same image also runs on **Kubernetes** (Kustomize, Helm, kind), and the agent is monitored with **Prometheus and Grafana**, both with docker compose and inside the cluster.
 
 ---
 
@@ -128,7 +128,8 @@ Documents go through the same steps whether they come from the sample folder or 
 | Code quality | SonarQube Cloud (quality gate, coverage, security hotspots) |
 | Security scanning | gitleaks (secrets), pip-audit (dependencies), Trivy (container image) |
 | Deployment | Docker, Docker Hub, Azure Container Apps |
-| Kubernetes | Kustomize (local and AKS overlays), HPA, PodDisruptionBudget, NetworkPolicy, kind in CI, kube-prometheus-stack |
+| Kubernetes | Kustomize (local and AKS overlays), kind, HPA, PodDisruptionBudget, NetworkPolicy, ingress-nginx, metrics-server |
+| Monitoring | Prometheus, Grafana, prometheus-fastapi-instrumentator, custom agent metrics; kube-prometheus-stack (Helm) with a ServiceMonitor on Kubernetes |
 
 ---
 
@@ -176,7 +177,12 @@ Wealth-agentic-rag/
 ├── data/sample_kb/            # Fictional sample documents loaded by ingest_sample_kb.py
 ├── tests/                     # pytest test suite
 │   └── eval/                  # answer-quality evaluation: questions, scorer, runner, report
-├── .github/workflows/tests.yml # CI/CD pipeline: tests, Sonar, security scans, build, deploy
+├── .github/workflows/tests.yml # CI/CD pipeline: tests, Sonar, security scans, Kubernetes check, build, deploy
+├── app/rag/metrics.py         # Prometheus metrics for the agent (questions, answer paths, step timings)
+├── monitoring/                # Prometheus config and Grafana dashboard (docker compose)
+├── docker-compose.yml         # App + Prometheus + Grafana on your machine
+├── k8s/                       # Kubernetes: Kustomize base + overlays, monitoring, kind config (see k8s/README.md)
+├── Makefile                   # Shortcuts for the local Kubernetes cluster
 ├── templates/index.html       # Web interface
 ├── static/                    # CSS and JavaScript for the interface
 ├── ingest_sample_kb.py        # Loads the sample documents into Pinecone
@@ -248,6 +254,18 @@ docker build -t agentic-rag .
 docker run -p 8080:8080 --env-file .env agentic-rag
 ```
 
+Or the app with Prometheus and Grafana (see [Monitoring](#monitoring)):
+
+```powershell
+docker compose up -d --build
+```
+
+> Write `.env` values **without quotes** (`APP_NAME=My Agentic RAG Assistant`). docker compose strips quotes, but `docker run --env-file` and Kubernetes keep them, which breaks API keys.
+
+### Kubernetes
+
+See [Kubernetes](#kubernetes) below and the full walkthrough in [k8s/README.md](k8s/README.md).
+
 ---
 
 ## Adding documents
@@ -318,6 +336,35 @@ The evaluation never runs with plain `pytest` or in the CI pipeline, because it 
 
 ---
 
+## Monitoring
+
+The app publishes metrics at **`/metrics`**: request rate, latency and errors per endpoint (from `prometheus-fastapi-instrumentator`), plus agent metrics from `app/rag/metrics.py`.
+
+| Metric | What it counts |
+|---|---|
+| `http_requests_total`, `http_request_duration_seconds` | Requests and response times per endpoint |
+| `agent_questions_total` | Questions asked |
+| `agent_answer_path_total{path}` | How each answer was produced: documents, web, direct or insufficient evidence |
+| `agent_evidence_grade_total{source,grade}` | How the agent graded the evidence it found |
+| `agent_query_rewrites_total` | Times the agent rephrased a question after weak evidence |
+| `agent_step_seconds{step}`, `agent_step_errors_total{step}` | Duration and failures of each workflow step (LLM, retrieval, web search) |
+
+Prometheus collects these every 15 seconds and the Grafana dashboard **Agentic RAG - Overview** (`monitoring/grafana/provisioning/dashboards/agentic-rag.json`) shows traffic, error rate, p95 latency, answer paths, evidence grades, rewrites and per-step timings.
+
+The same dashboard runs in two setups. They are separate, so watch the one that matches where you ask questions:
+
+| | docker compose | Kubernetes |
+|---|---|---|
+| Start | `docker compose up -d --build` | `helm` install, see [k8s/README.md](k8s/README.md#monitoring) |
+| App | http://localhost:8080 | http://agentic-rag.localtest.me |
+| Grafana | http://localhost:3000 | http://localhost:3001 (port-forward) |
+| Prometheus | http://localhost:9090 | http://localhost:9091 (port-forward) |
+| Finds the app by | Fixed targets in `monitoring/prometheus/prometheus.yml` | A ServiceMonitor, automatically |
+
+New questions appear on the dashboard after 30-60 seconds (15-second scrapes and 5-minute rate windows).
+
+---
+
 ## CI/CD and DevSecOps pipeline
 
 Every push to `main` runs the pipeline in `.github/workflows/tests.yml`. Each stage only runs if the previous ones pass, so a failing test or a security finding never reaches the live demo.
@@ -327,6 +374,7 @@ flowchart LR
     P([git push]) --> T[Tests + coverage<br/>pytest]
     P --> S[Secret scan<br/>gitleaks]
     P --> D[Dependency scan<br/>pip-audit]
+    P --> KC[Kubernetes check<br/>kind cluster]
     T --> Q[Code quality<br/>SonarQube Cloud]
     T --> B
     S --> B
@@ -345,6 +393,7 @@ flowchart LR
 | Secret scan | gitleaks | A password or key is found anywhere in the repository history |
 | Dependency scan | pip-audit | A Python dependency has a known vulnerability |
 | Image scan | Trivy | The Docker image has a HIGH or CRITICAL vulnerability with a fix available |
+| Kubernetes check | kubeconform, kind, kubectl | Reported only: the manifests are invalid, or the app doesn't become healthy in a throwaway kind cluster |
 | Deploy | Azure CLI | The Container App cannot be updated |
 | Smoke test | curl | The live app does not respond within about 3 minutes |
 | End-to-end | Playwright (Chromium) | A user flow fails in the deployed app; screenshots and a trace recording of failed tests are attached to the run |
@@ -450,17 +499,49 @@ Each release uses a new image tag, so Azure keeps a revision history and older v
 - **Storage:** indexed documents live in Pinecone and persist across restarts. Files saved inside the container and the audit log are temporary on this setup.
 - **Cost control:** the OpenAI account has a monthly spending limit, and the Azure subscription has a budget alert.
 
-### Kubernetes
+---
 
-The same image also runs on Kubernetes. [`k8s/`](k8s/README.md) holds Kustomize manifests hardened to the `restricted` Pod Security Standard (non-root, read-only filesystem, no capabilities), with health probes, zero-downtime rolling updates, autoscaling, a PodDisruptionBudget and a NetworkPolicy, plus in-cluster Prometheus and Grafana using the existing dashboard.
+## Kubernetes
 
-On every push, the `kubernetes` CI job validates the manifests, deploys the app to a throwaway kind cluster and checks `/api/health` and `/metrics`. To run it on your laptop:
+The same Docker image also runs on Kubernetes, alongside the Azure Container Apps deployment (which is unchanged). It has been verified end to end on a local [kind](https://kind.sigs.k8s.io/) cluster: the app answers questions through Azure OpenAI, Pinecone and Tavily, and Prometheus and Grafana run inside the cluster.
 
-```bash
-make k8s-up && make k8s-secrets && make k8s-deploy   # then open http://agentic-rag.localtest.me
+```mermaid
+flowchart LR
+    U([Browser]) --> I[Ingress<br/>ingress-nginx]
+    I --> S[Service]
+    S --> P[App pods]
+    H[HPA] -. scales .-> P
+    PR[Prometheus] -- ServiceMonitor<br/>/metrics --> S
+    G[Grafana] --> PR
+    P -- HTTPS --> X[(Azure OpenAI<br/>Pinecone · Tavily)]
 ```
 
-See [k8s/README.md](k8s/README.md) for the walkthrough (including PowerShell), monitoring, and deploying to AKS.
+| Area | What's in place |
+|---|---|
+| Manifests | Kustomize `base` + `local` and `aks` overlays in [`k8s/`](k8s/README.md) |
+| Security | Non-root, read-only root filesystem, all capabilities dropped, no service-account token, `restricted` Pod Security Standard, NetworkPolicy (in: HTTP only; out: DNS + HTTPS only) |
+| Reliability | Startup, readiness and liveness probes on `/api/health`; zero-downtime rolling updates; PodDisruptionBudget; pods spread across nodes |
+| Scaling | HorizontalPodAutoscaler on CPU, with metrics-server |
+| Secrets | A Kubernetes Secret created from your local `.env`; nothing secret is committed |
+| Monitoring | `kube-prometheus-stack` installed with Helm, a ServiceMonitor for `/metrics`, and the existing Grafana dashboard loaded automatically |
+| CI | The `kubernetes` job validates the manifests (kubeconform), deploys to a throwaway kind cluster and checks `/api/health` and `/metrics` on every push |
+
+Quick start on Windows (PowerShell), with Docker Desktop running and `kind`, `kubectl` and `helm` installed ([how](k8s/README.md#1-install-the-tools)):
+
+```powershell
+kind create cluster --name agentic-rag --config k8s/kind-config.yaml
+# ingress controller + metrics-server: see k8s/README.md step 3
+kubectl create namespace agentic-rag
+kubectl -n agentic-rag create secret generic agentic-rag-secrets --from-env-file=.env
+docker build -t agentic-rag:local .
+kind load docker-image agentic-rag:local --name agentic-rag
+kubectl apply -k k8s/overlays/local
+# open http://agentic-rag.localtest.me
+```
+
+On macOS, Linux or WSL: `make k8s-up && make k8s-secrets && make k8s-deploy && make k8s-monitoring`.
+
+[k8s/README.md](k8s/README.md) has the full walkthrough, monitoring, troubleshooting and the AKS steps.
 
 ---
 
@@ -472,6 +553,13 @@ See [k8s/README.md](k8s/README.md) for the walkthrough (including PowerShell), m
 - **Document sources:** sync from Google Drive, Shared Drives or network folders.
 - **Rate limiting:** limit questions per visitor on the public demo.
 - **Access control:** restrict documents by team or role.
+- **GitOps:** Argo CD deploying the Kubernetes manifests from Git.
+- **Helm chart** for the app itself.
+- **Public access to the local cluster** through Cloudflare Tunnel with a login (Cloudflare Access).
+- **Supply-chain security:** SBOM (Syft) and image signing (cosign).
+- **Tracing:** OpenTelemetry traces for each step of the agent.
+- **Alerting:** Prometheus alert rules for error rate and slow answers.
+- **Shared audit log:** move the SQLite audit log to a managed database so all pods share it.
 
 ---
 

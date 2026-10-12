@@ -3,6 +3,7 @@
 #   make k8s-secrets     load your API keys from .env into the cluster
 #   make k8s-deploy      build the image, load it into kind, deploy the app
 #   make k8s-monitoring  Prometheus + Grafana in the cluster, with the app dashboard
+#   make k8s-grafana     open Grafana on http://localhost:3001
 #   make k8s-down        delete the cluster
 # See k8s/README.md for the full walkthrough and the Windows (PowerShell) equivalents.
 
@@ -11,7 +12,7 @@ NAMESPACE ?= agentic-rag
 IMAGE     ?= agentic-rag:local
 INGRESS_NGINX_VERSION ?= controller-v1.13.3
 
-.PHONY: k8s-up k8s-secrets k8s-deploy k8s-status k8s-monitoring k8s-grafana k8s-down
+.PHONY: k8s-up k8s-secrets k8s-deploy k8s-status k8s-monitoring k8s-grafana k8s-prometheus k8s-down
 
 k8s-up:
 	kind create cluster --name $(CLUSTER) --config k8s/kind-config.yaml
@@ -48,8 +49,12 @@ k8s-monitoring:
 	  --dry-run=client -o yaml | kubectl label --local -f - grafana_dashboard=1 -o yaml | kubectl apply -f -
 
 k8s-grafana:
-	@echo "Grafana: http://localhost:3000 (admin / change-me)"
-	kubectl -n monitoring port-forward svc/monitoring-grafana 3000:80
+	@echo "Grafana: http://localhost:3001 (admin / change-me)"
+	kubectl -n monitoring port-forward svc/monitoring-grafana 3001:80
+
+k8s-prometheus:
+	@echo "Prometheus: http://localhost:9091 (Status > Targets)"
+	kubectl -n monitoring port-forward svc/monitoring-kube-prometheus-prometheus 9091:9090
 
 k8s-down:
 	kind delete cluster --name $(CLUSTER)
