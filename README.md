@@ -6,7 +6,7 @@
 
 An agentic Retrieval-Augmented Generation (RAG) assistant that answers staff questions about wealth banking platforms and secure access, using the organization's own documents first and the public web only when the documents fall short.
 
-Built with **LangGraph, FastAPI, OpenAI, Pinecone and Tavily**, with a web interface for chatting, uploading documents and inspecting how the agent reached each answer. Tested with **pytest** and delivered through a **CI/CD and DevSecOps pipeline** (GitHub Actions, SonarQube Cloud, gitleaks, pip-audit, Trivy) that deploys automatically to **Azure Container Apps**. The same image also runs on **Kubernetes** (Kustomize, Helm, kind), and the agent is monitored with **Prometheus and Grafana**, both with docker compose and inside the cluster.
+Built with **LangGraph, FastAPI, OpenAI, Pinecone and Tavily**, with a web interface for chatting, uploading documents and inspecting how the agent reached each answer. Tested with **pytest** and delivered through a **CI/CD and DevSecOps pipeline** (GitHub Actions, SonarQube Cloud, gitleaks, pip-audit, Trivy) that deploys automatically to **Azure Container Apps**. The same image also runs on **Kubernetes**, deployed with Kustomize or with its own **Helm chart**, and the agent is monitored with **Prometheus and Grafana**, both with docker compose and inside the cluster.
 
 ---
 
@@ -128,7 +128,7 @@ Documents go through the same steps whether they come from the sample folder or 
 | Code quality | SonarQube Cloud (quality gate, coverage, security hotspots) |
 | Security scanning | gitleaks (secrets), pip-audit (dependencies), Trivy (container image) |
 | Deployment | Docker, Docker Hub, Azure Container Apps |
-| Kubernetes | Kustomize (local and AKS overlays), kind, HPA, PodDisruptionBudget, NetworkPolicy, ingress-nginx, metrics-server |
+| Kubernetes | Helm chart (`charts/agentic-rag`) and Kustomize (local and AKS overlays), kind, HPA, PodDisruptionBudget, NetworkPolicy, ingress-nginx, metrics-server |
 | Monitoring | Prometheus, Grafana, prometheus-fastapi-instrumentator, custom agent metrics; kube-prometheus-stack (Helm) with a ServiceMonitor on Kubernetes |
 
 ---
@@ -177,11 +177,13 @@ Wealth-agentic-rag/
 ├── data/sample_kb/            # Fictional sample documents loaded by ingest_sample_kb.py
 ├── tests/                     # pytest test suite
 │   └── eval/                  # answer-quality evaluation: questions, scorer, runner, report
-├── .github/workflows/tests.yml # CI/CD pipeline: tests, Sonar, security scans, Kubernetes check, build, deploy
+├── .github/workflows/tests.yml # CI/CD pipeline: tests, Sonar, security scans, build, deploy
+├── .github/workflows/kubernetes.yml # Kubernetes checks: Kustomize and Helm chart on throwaway kind clusters
 ├── app/rag/metrics.py         # Prometheus metrics for the agent (questions, answer paths, step timings)
 ├── monitoring/                # Prometheus config and Grafana dashboard (docker compose)
 ├── docker-compose.yml         # App + Prometheus + Grafana on your machine
 ├── k8s/                       # Kubernetes: Kustomize base + overlays, monitoring, kind config (see k8s/README.md)
+├── charts/agentic-rag/        # Helm chart for the app (see charts/agentic-rag/README.md)
 ├── Makefile                   # Shortcuts for the local Kubernetes cluster
 ├── templates/index.html       # Web interface
 ├── static/                    # CSS and JavaScript for the interface
@@ -374,7 +376,6 @@ flowchart LR
     P([git push]) --> T[Tests + coverage<br/>pytest]
     P --> S[Secret scan<br/>gitleaks]
     P --> D[Dependency scan<br/>pip-audit]
-    P --> KC[Kubernetes check<br/>kind cluster]
     T --> Q[Code quality<br/>SonarQube Cloud]
     T --> B
     S --> B
@@ -393,7 +394,6 @@ flowchart LR
 | Secret scan | gitleaks | A password or key is found anywhere in the repository history |
 | Dependency scan | pip-audit | A Python dependency has a known vulnerability |
 | Image scan | Trivy | The Docker image has a HIGH or CRITICAL vulnerability with a fix available |
-| Kubernetes check | kubeconform, kind, kubectl | Reported only: the manifests are invalid, or the app doesn't become healthy in a throwaway kind cluster |
 | Deploy | Azure CLI | The Container App cannot be updated |
 | Smoke test | curl | The live app does not respond within about 3 minutes |
 | End-to-end | Playwright (Chromium) | A user flow fails in the deployed app; screenshots and a trace recording of failed tests are attached to the run |
@@ -401,7 +401,8 @@ flowchart LR
 **Safeguards**
 
 - Pull requests run the checks but never deploy.
-- Documentation-only changes (README, LICENSE, screenshots) do not trigger a rebuild.
+- Documentation-only changes (README, LICENSE, screenshots) and Kubernetes-only changes (`k8s/`, `charts/`, `Makefile`) do not trigger a rebuild or redeploy.
+- A separate workflow, `.github/workflows/kubernetes.yml`, tests the Kubernetes setup on every push: it validates the Kustomize manifests and lints the Helm chart, then deploys each to a throwaway kind cluster, runs `helm test`, and checks a Helm upgrade and rollback.
 - Only one pipeline runs at a time.
 - Each image is tagged with its commit ID, so every live version traces back to exact code and can be rolled back.
 - Credentials are stored as encrypted GitHub secrets: a Docker Hub access token, and an Azure service principal scoped to the project's resource group only. The application's API keys stay in Azure and never pass through GitHub.
@@ -519,12 +520,13 @@ flowchart LR
 | Area | What's in place |
 |---|---|
 | Manifests | Kustomize `base` + `local` and `aks` overlays in [`k8s/`](k8s/README.md) |
+| Helm chart | [`charts/agentic-rag`](charts/agentic-rag/README.md): the same setup as a chart, with `values-local.yaml` and `values-aks.yaml`, a `helm test`, an optional ServiceMonitor and the Grafana dashboard |
 | Security | Non-root, read-only root filesystem, all capabilities dropped, no service-account token, `restricted` Pod Security Standard, NetworkPolicy (in: HTTP only; out: DNS + HTTPS only) |
 | Reliability | Startup, readiness and liveness probes on `/api/health`; zero-downtime rolling updates; PodDisruptionBudget; pods spread across nodes |
 | Scaling | HorizontalPodAutoscaler on CPU, with metrics-server |
 | Secrets | A Kubernetes Secret created from your local `.env`; nothing secret is committed |
 | Monitoring | `kube-prometheus-stack` installed with Helm, a ServiceMonitor for `/metrics`, and the existing Grafana dashboard loaded automatically |
-| CI | The `kubernetes` job validates the manifests (kubeconform), deploys to a throwaway kind cluster and checks `/api/health` and `/metrics` on every push |
+| CI | `.github/workflows/kubernetes.yml` validates the manifests and lints the chart, deploys both to throwaway kind clusters, runs `helm test`, and checks a Helm upgrade and rollback on every push |
 
 Quick start on Windows (PowerShell), with Docker Desktop running and `kind`, `kubectl` and `helm` installed ([how](k8s/README.md#1-install-the-tools)):
 
@@ -539,9 +541,16 @@ kubectl apply -k k8s/overlays/local
 # open http://agentic-rag.localtest.me
 ```
 
-On macOS, Linux or WSL: `make k8s-up && make k8s-secrets && make k8s-deploy && make k8s-monitoring`.
+Or with the Helm chart instead of `kubectl apply -k`:
 
-[k8s/README.md](k8s/README.md) has the full walkthrough, monitoring, troubleshooting and the AKS steps.
+```powershell
+helm upgrade --install agentic-rag ./charts/agentic-rag -n agentic-rag -f charts/agentic-rag/values-local.yaml
+helm test agentic-rag -n agentic-rag
+```
+
+On macOS, Linux or WSL: `make k8s-up && make k8s-secrets && make k8s-deploy && make k8s-monitoring` (or `make helm-install` instead of `k8s-deploy`).
+
+[k8s/README.md](k8s/README.md) has the full walkthrough, monitoring, troubleshooting and the AKS steps; [charts/agentic-rag/README.md](charts/agentic-rag/README.md) covers the Helm chart.
 
 ---
 
@@ -554,7 +563,6 @@ On macOS, Linux or WSL: `make k8s-up && make k8s-secrets && make k8s-deploy && m
 - **Rate limiting:** limit questions per visitor on the public demo.
 - **Access control:** restrict documents by team or role.
 - **GitOps:** Argo CD deploying the Kubernetes manifests from Git.
-- **Helm chart** for the app itself.
 - **Public access to the local cluster** through Cloudflare Tunnel with a login (Cloudflare Access).
 - **Supply-chain security:** SBOM (Syft) and image signing (cosign).
 - **Tracing:** OpenTelemetry traces for each step of the agent.

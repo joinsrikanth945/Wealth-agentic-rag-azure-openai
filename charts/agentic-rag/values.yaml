@@ -1,0 +1,98 @@
+# Default settings for the agentic-rag chart.
+# Override per environment with -f values-local.yaml / -f values-aks.yaml, or --set key=value.
+
+replicaCount: 2
+
+image:
+  repository: docker.io/joinsrikanth945/agentic-rag
+  tag: ""                  # empty = the chart's appVersion; CI/deploys pass the commit SHA
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Non-secret settings, given to the app as environment variables (app/core/config.py)
+config:
+  APP_ENV: production
+  LLM_PROVIDER: azure      # "azure" (Azure OpenAI) or "openai"
+  PORT: "8080"
+
+# API keys: an existing Secret, created from .env with
+#   kubectl -n <ns> create secret generic agentic-rag-secrets --from-env-file=.env
+# The chart never stores keys itself.
+existingSecret: agentic-rag-secrets
+
+service:
+  type: ClusterIP
+  port: 80
+
+containerPort: 8080
+
+ingress:
+  enabled: true
+  className: nginx
+  host: agentic-rag.example.com
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "25m"      # document uploads
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"   # agent answers can take a while
+  tls: []                  # e.g. [{secretName: agentic-rag-tls, hosts: [agentic-rag.example.com]}]
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    memory: 1Gi
+
+# Health checks on /api/health
+probes:
+  path: /api/health
+  startupFailureThreshold: 24   # x 5 s = up to 2 minutes for LangChain to load
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true            # in: app port only; out: DNS + HTTPS only
+
+# Per-pod writable storage for the SQLite audit log and uploads (root filesystem is read-only)
+storage:
+  dataSizeLimit: 1Gi
+  tmpSizeLimit: 512Mi
+
+# Prometheus Operator ServiceMonitor (needs kube-prometheus-stack)
+serviceMonitor:
+  enabled: false
+  interval: 15s
+  labels: {}
+
+# Grafana dashboard ConfigMap, picked up by the kube-prometheus-stack Grafana sidecar
+grafanaDashboard:
+  enabled: false
+  namespace: monitoring
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+podAnnotations: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}

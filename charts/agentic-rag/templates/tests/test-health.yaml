@@ -1,0 +1,40 @@
+# helm test: calls /api/health and /metrics through the Service from inside the cluster
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "agentic-rag.fullname" . }}-test-health
+  labels:
+    app.kubernetes.io/name: {{ include "agentic-rag.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: test
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: check
+      image: curlimages/curl:8.11.1
+      command: ["sh", "-c"]
+      args:
+        - >-
+          curl -fsS http://{{ include "agentic-rag.fullname" . }}:{{ .Values.service.port }}{{ .Values.probes.path }} &&
+          curl -fsS http://{{ include "agentic-rag.fullname" . }}:{{ .Values.service.port }}/metrics | grep -q http_requests_total &&
+          echo "agentic-rag is healthy"
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: ["ALL"]
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          memory: 64Mi

@@ -7,6 +7,18 @@ The live demo still deploys to Azure Container Apps. This folder adds Kubernetes
 CI deploys the app to a throwaway [kind](https://kind.sigs.k8s.io/) cluster on every push to
 prove the manifests work, and you can run the same setup on your own machine for free.
 
+There are two ways to deploy the app, and both give the same result:
+
+| | Kustomize (this folder) | Helm chart ([`charts/agentic-rag`](../charts/agentic-rag/README.md)) |
+|---|---|---|
+| Deploy | `kubectl apply -k k8s/overlays/local` | `helm upgrade --install agentic-rag ./charts/agentic-rag -n agentic-rag -f charts/agentic-rag/values-local.yaml` |
+| Per-environment settings | Overlays (`overlays/local`, `overlays/aks`) | Values files (`values-local.yaml`, `values-aks.yaml`) |
+| Upgrade history and rollback | No (use Git) | Yes: `helm history`, `helm rollback` |
+| Built-in test | No | `helm test` |
+
+Use one or the other on a cluster, not both: they create resources with the same names.
+The steps below use Kustomize; for Helm, follow steps 1-3 here and then the chart's README.
+
 **Status:** verified end to end on a local kind cluster (Windows 11, Docker Desktop): the app
 answers questions through Azure OpenAI (`chat/completions` and `embeddings` return 200),
 Pinecone and Tavily, and the Grafana dashboard updates from the in-cluster Prometheus.
@@ -307,11 +319,16 @@ az aks start -g agentic-rag-rg -n agentic-rag-aks
 
 ## CI
 
-The `kubernetes` job in `.github/workflows/tests.yml` runs on every push and pull request:
+`.github/workflows/kubernetes.yml` runs on every push and pull request, separately from the
+Azure Container Apps pipeline. Changes only under `k8s/`, `charts/` or the `Makefile` run this
+workflow and never redeploy the Azure app.
 
-1. Renders both overlays with Kustomize and validates them with kubeconform.
-2. Creates a kind cluster on the runner, builds the image and deploys the `local` overlay.
-3. Waits for the rollout and checks `/api/health` and `/metrics` through the Service.
-4. On failure, prints pod status, events and logs.
+1. **validate:** renders both Kustomize overlays and validates them with kubeconform; runs
+   `helm lint --strict` with each values file and validates the rendered chart; checks the chart's
+   dashboard copy matches `monitoring/grafana/.../agentic-rag.json`.
+2. **kustomize-on-kind:** creates a kind cluster, builds the image, deploys the `local` overlay and
+   checks `/api/health` and `/metrics`.
+3. **helm-on-kind:** creates a kind cluster, installs the chart, runs `helm test`, upgrades,
+   rolls back and runs `helm test` again.
 
-It runs alongside the Azure Container Apps pipeline and doesn't block the deployment.
+On failure, the jobs print pod status, events and logs.

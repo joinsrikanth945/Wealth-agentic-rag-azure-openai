@@ -1,0 +1,150 @@
+name: Kubernetes
+
+# Tests the Kubernetes setup on every push and pull request: the Kustomize manifests and
+# the Helm chart are validated, then each is deployed to a throwaway kind cluster.
+# Separate from the CI/CD workflow, so Kubernetes-only changes never redeploy the Azure app.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "README.md"
+      - "LICENSE"
+      - "img*.png"
+  pull_request:
+
+concurrency:
+  group: kubernetes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 1. Static checks: Kustomize overlays and the Helm chart against the Kubernetes schemas
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
+
+      - name: Install kubeconform
+        run: curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz | tar xz
+
+      - name: Validate the Kustomize overlays
+        run: |
+          for overlay in local aks; do
+            echo "== k8s/overlays/$overlay"
+            kubectl kustomize "k8s/overlays/$overlay" | ./kubeconform -strict -summary -kubernetes-version 1.33.0 -
+          done
+          ./kubeconform -strict -summary -ignore-missing-schemas k8s/monitoring/servicemonitor.yaml
+
+      - name: Lint the Helm chart
+        run: |
+          helm lint charts/agentic-rag --strict
+          helm lint charts/agentic-rag --strict -f charts/agentic-rag/values-local.yaml
+          helm lint charts/agentic-rag --strict -f charts/agentic-rag/values-aks.yaml
+
+      - name: Validate the rendered Helm chart
+        run: |
+          for values in values.yaml values-local.yaml values-aks.yaml; do
+            echo "== charts/agentic-rag/$values"
+            helm template agentic-rag charts/agentic-rag -n agentic-rag -f "charts/agentic-rag/$values" \
+              | ./kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.33.0 -
+          done
+
+      - name: Check the chart's dashboard matches the main dashboard
+        run: diff monitoring/grafana/provisioning/dashboards/agentic-rag.json charts/agentic-rag/dashboards/agentic-rag.json
+
+  # 2. Deploy with Kustomize to a throwaway kind cluster and check the app answers
+  kustomize-on-kind:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Create a kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: agentic-rag
+
+      - name: Build the image and load it into the cluster
+        run: |
+          docker build -t agentic-rag:local .
+          kind load docker-image agentic-rag:local --name agentic-rag
+
+      - name: Deploy the app
+        run: |
+          kubectl apply -k k8s/overlays/local
+          kubectl -n agentic-rag rollout status deployment/agentic-rag --timeout=240s
+
+      - name: Smoke test through the Service
+        run: |
+          kubectl -n agentic-rag port-forward svc/agentic-rag 8080:80 &
+          sleep 5
+          curl -fsS http://localhost:8080/api/health
+          curl -fsS http://localhost:8080/metrics -o metrics.txt
+          grep -q http_requests_total metrics.txt
+          echo "App is healthy on Kubernetes (Kustomize)"
+
+      - name: Show what went wrong
+        if: failure()
+        run: |
+          kubectl -n agentic-rag get pods,svc,events -o wide || true
+          kubectl -n agentic-rag describe pods || true
+          kubectl -n agentic-rag logs deployment/agentic-rag --all-containers --tail=200 || true
+
+  # 3. Install the Helm chart on a throwaway kind cluster, then upgrade, test and roll back
+  helm-on-kind:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
+
+      - name: Create a kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: agentic-rag
+
+      - name: Build the image and load it into the cluster
+        run: |
+          docker build -t agentic-rag:local .
+          kind load docker-image agentic-rag:local --name agentic-rag
+
+      - name: Install the chart
+        # ServiceMonitor and dashboard need kube-prometheus-stack, which this cluster doesn't have
+        run: |
+          kubectl create namespace agentic-rag
+          kubectl label namespace agentic-rag pod-security.kubernetes.io/enforce=restricted
+          helm install agentic-rag charts/agentic-rag -n agentic-rag \
+            -f charts/agentic-rag/values-local.yaml \
+            --set serviceMonitor.enabled=false --set grafanaDashboard.enabled=false \
+            --wait --timeout 5m
+
+      - name: Run the chart's tests (helm test)
+        run: helm test agentic-rag -n agentic-rag --logs
+
+      - name: Upgrade, then roll back
+        run: |
+          helm upgrade agentic-rag charts/agentic-rag -n agentic-rag --reuse-values \
+            --set config.APP_ENV=ci-upgrade --wait --timeout 5m
+          helm rollback agentic-rag 1 -n agentic-rag --wait --timeout 5m
+          helm history agentic-rag -n agentic-rag
+          helm test agentic-rag -n agentic-rag --logs
+
+      - name: Show what went wrong
+        if: failure()
+        run: |
+          helm list -n agentic-rag || true
+          kubectl -n agentic-rag get pods,svc,events -o wide || true
+          kubectl -n agentic-rag describe pods || true
+          kubectl -n agentic-rag logs deployment/agentic-rag --all-containers --tail=200 || true

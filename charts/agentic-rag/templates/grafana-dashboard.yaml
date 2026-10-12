@@ -1,0 +1,14 @@
+{{- if .Values.grafanaDashboard.enabled }}
+# Picked up by the kube-prometheus-stack Grafana sidecar (label grafana_dashboard)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "agentic-rag.fullname" . }}-dashboard
+  namespace: {{ .Values.grafanaDashboard.namespace }}
+  labels:
+    {{- include "agentic-rag.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  agentic-rag.json: |-
+{{ .Files.Get "dashboards/agentic-rag.json" | indent 4 }}
+{{- end }}

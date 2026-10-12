@@ -1,0 +1,31 @@
+# Local kind/minikube cluster: image built on your machine, one pod, small requests.
+#   helm upgrade --install agentic-rag ./charts/agentic-rag -n agentic-rag -f charts/agentic-rag/values-local.yaml
+replicaCount: 1
+
+image:
+  repository: agentic-rag
+  tag: local
+  pullPolicy: IfNotPresent
+
+ingress:
+  host: agentic-rag.localtest.me
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+
+autoscaling:
+  minReplicas: 1
+  maxReplicas: 2
+
+podDisruptionBudget:
+  enabled: false
+
+serviceMonitor:
+  enabled: true
+
+grafanaDashboard:
+  enabled: true
