@@ -1,0 +1,52 @@
+# Local cluster (kind or minikube): image built on your machine, one pod,
+# app reachable at http://agentic-rag.localtest.me (localtest.me always points to 127.0.0.1).
+#   kubectl apply -k k8s/overlays/local
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+images:
+  - name: agentic-rag
+    newName: agentic-rag
+    newTag: local
+
+patches:
+  - target:
+      kind: Ingress
+      name: agentic-rag
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: agentic-rag.localtest.me
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: agentic-rag
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 1
+      - op: replace
+        path: /spec/maxReplicas
+        value: 2
+  - target:
+      kind: PodDisruptionBudget
+      name: agentic-rag
+    patch: |-
+      - op: replace
+        path: /spec/minAvailable
+        value: 0
+  - target:
+      kind: Deployment
+      name: agentic-rag
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 100m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 256Mi

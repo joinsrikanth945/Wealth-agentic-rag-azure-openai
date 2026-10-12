@@ -1,0 +1,43 @@
+# Helm values for prometheus-community/kube-prometheus-stack, kept small for a laptop cluster.
+#   helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+#     -n monitoring --create-namespace -f k8s/monitoring/kube-prometheus-stack-values.yaml
+
+prometheus:
+  prometheusSpec:
+    # Pick up ServiceMonitors from every namespace, not only ones labelled for this Helm release
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    retention: 7d
+    resources:
+      requests:
+        cpu: 100m
+        memory: 400Mi
+
+grafana:
+  adminUser: admin
+  # Set your own: --set grafana.adminPassword=... (never commit a real password)
+  adminPassword: change-me
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard      # ConfigMaps with this label become dashboards
+      searchNamespace: ALL
+    datasources:
+      uid: prometheus               # matches the uid used in monitoring/grafana/.../agentic-rag.json
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+
+# Not useful on kind (control plane components aren't reachable there)
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false

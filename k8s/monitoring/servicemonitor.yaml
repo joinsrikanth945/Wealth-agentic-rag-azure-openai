@@ -1,0 +1,19 @@
+# Tells the in-cluster Prometheus (kube-prometheus-stack) to scrape the app's /metrics
+# every 15 seconds, through the Service's "http" port.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: agentic-rag
+  namespace: agentic-rag
+  labels:
+    app.kubernetes.io/name: agentic-rag
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: agentic-rag
+  namespaceSelector:
+    matchNames: ["agentic-rag"]
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

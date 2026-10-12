@@ -1,0 +1,10 @@
+# Keeps at least one pod serving during node upgrades and drains.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: agentic-rag
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: api

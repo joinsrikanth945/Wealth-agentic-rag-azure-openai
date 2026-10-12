@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentic-rag
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/component: api
+  ports:
+    - name: http          # the ServiceMonitor scrapes /metrics through this port name
+      port: 80
+      targetPort: http

@@ -1,0 +1,24 @@
+# Only HTTP into the app; out of it, only DNS and HTTPS
+# (Azure OpenAI / OpenAI, Pinecone and Tavily are all HTTPS APIs).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agentic-rag
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: api
+  policyTypes: ["Ingress", "Egress"]
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - ports:
+        - protocol: TCP
+          port: 443

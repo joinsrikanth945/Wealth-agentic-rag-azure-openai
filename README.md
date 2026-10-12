@@ -128,6 +128,7 @@ Documents go through the same steps whether they come from the sample folder or 
 | Code quality | SonarQube Cloud (quality gate, coverage, security hotspots) |
 | Security scanning | gitleaks (secrets), pip-audit (dependencies), Trivy (container image) |
 | Deployment | Docker, Docker Hub, Azure Container Apps |
+| Kubernetes | Kustomize (local and AKS overlays), HPA, PodDisruptionBudget, NetworkPolicy, kind in CI, kube-prometheus-stack |
 
 ---
 
@@ -448,6 +449,18 @@ Each release uses a new image tag, so Azure keeps a revision history and older v
 - **Cold starts:** after a period without traffic, the app scales to zero, so the first request takes a few seconds while it starts.
 - **Storage:** indexed documents live in Pinecone and persist across restarts. Files saved inside the container and the audit log are temporary on this setup.
 - **Cost control:** the OpenAI account has a monthly spending limit, and the Azure subscription has a budget alert.
+
+### Kubernetes
+
+The same image also runs on Kubernetes. [`k8s/`](k8s/README.md) holds Kustomize manifests hardened to the `restricted` Pod Security Standard (non-root, read-only filesystem, no capabilities), with health probes, zero-downtime rolling updates, autoscaling, a PodDisruptionBudget and a NetworkPolicy, plus in-cluster Prometheus and Grafana using the existing dashboard.
+
+On every push, the `kubernetes` CI job validates the manifests, deploys the app to a throwaway kind cluster and checks `/api/health` and `/metrics`. To run it on your laptop:
+
+```bash
+make k8s-up && make k8s-secrets && make k8s-deploy   # then open http://agentic-rag.localtest.me
+```
+
+See [k8s/README.md](k8s/README.md) for the walkthrough (including PowerShell), monitoring, and deploying to AKS.
 
 ---
 

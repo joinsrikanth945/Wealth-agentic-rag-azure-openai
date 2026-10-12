@@ -21,3 +21,5 @@ docs
 google-credentials.json
 monitoring
 docker-compose.yml
+k8s
+Makefile

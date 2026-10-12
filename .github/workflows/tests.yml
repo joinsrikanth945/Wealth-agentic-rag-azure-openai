@@ -87,6 +87,55 @@ jobs:
           pip install pip-audit
           pip-audit -r requirements.txt --desc
 
+  # 3b. Kubernetes check: validate the manifests, then deploy the app to a throwaway
+  #     kind cluster and confirm it answers. Runs on every push and PR, separately from
+  #     the Azure Container Apps deployment (which does not wait for it).
+  kubernetes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Validate the manifests against the Kubernetes schemas
+        run: |
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz | tar xz
+          for overlay in local aks; do
+            echo "== $overlay"
+            kubectl kustomize "k8s/overlays/$overlay" | ./kubeconform -strict -summary -kubernetes-version 1.33.0 -
+          done
+          ./kubeconform -strict -summary -ignore-missing-schemas k8s/monitoring/servicemonitor.yaml
+
+      - name: Create a kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: agentic-rag
+
+      - name: Build the image and load it into the cluster
+        run: |
+          docker build -t agentic-rag:local .
+          kind load docker-image agentic-rag:local --name agentic-rag
+
+      - name: Deploy the app
+        run: |
+          kubectl apply -k k8s/overlays/local
+          kubectl -n agentic-rag rollout status deployment/agentic-rag --timeout=240s
+
+      - name: Smoke test through the Service
+        run: |
+          kubectl -n agentic-rag port-forward svc/agentic-rag 8080:80 &
+          sleep 5
+          curl -fsS http://localhost:8080/api/health
+          curl -fsS http://localhost:8080/metrics -o metrics.txt
+          grep -q http_requests_total metrics.txt
+          echo "App is healthy on Kubernetes"
+
+      - name: Show what went wrong
+        if: failure()
+        run: |
+          kubectl -n agentic-rag get pods,svc,events -o wide || true
+          kubectl -n agentic-rag describe pods || true
+          kubectl -n agentic-rag logs deployment/agentic-rag --all-containers --tail=200 || true
+
   # 4. Build the image, scan it with Trivy, then push (only after all checks pass, only on main)
   build-and-push:
     needs: [test, secret-scan, dependency-scan]
