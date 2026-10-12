@@ -2,7 +2,7 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: agentic-rag
+  name: agentic-rag-azure
 spec:
   minAvailable: 1
   selector:

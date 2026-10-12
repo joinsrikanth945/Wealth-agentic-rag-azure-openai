@@ -9,9 +9,9 @@
 #   make k8s-down        delete the cluster
 # See k8s/README.md for the full walkthrough and the Windows (PowerShell) equivalents.
 
-CLUSTER   ?= agentic-rag
-NAMESPACE ?= agentic-rag
-IMAGE     ?= agentic-rag:local
+CLUSTER   ?= agentic-rag-azure
+NAMESPACE ?= agentic-rag-azure
+IMAGE     ?= agentic-rag-azure:local
 INGRESS_NGINX_VERSION ?= controller-v1.13.3
 
 .PHONY: k8s-up k8s-secrets k8s-deploy k8s-status k8s-monitoring k8s-grafana k8s-prometheus helm-install helm-test k8s-down
@@ -26,16 +26,16 @@ k8s-up:
 
 k8s-secrets:
 	kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
-	kubectl -n $(NAMESPACE) create secret generic agentic-rag-secrets --from-env-file=.env \
+	kubectl -n $(NAMESPACE) create secret generic agentic-rag-azure-secrets --from-env-file=.env \
 	  --dry-run=client -o yaml | kubectl apply -f -
 
 k8s-deploy:
 	docker build -t $(IMAGE) .
 	kind load docker-image $(IMAGE) --name $(CLUSTER)
 	kubectl apply -k k8s/overlays/local
-	kubectl -n $(NAMESPACE) rollout restart deployment/agentic-rag
-	kubectl -n $(NAMESPACE) rollout status deployment/agentic-rag --timeout=180s
-	@echo "App: http://agentic-rag.localtest.me"
+	kubectl -n $(NAMESPACE) rollout restart deployment/agentic-rag-azure
+	kubectl -n $(NAMESPACE) rollout status deployment/agentic-rag-azure --timeout=180s
+	@echo "App: http://agentic-rag-azure.localtest.me"
 
 k8s-status:
 	kubectl -n $(NAMESPACE) get pods,svc,ingress,hpa,pdb
@@ -46,7 +46,7 @@ k8s-monitoring:
 	helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
 	  -n monitoring --create-namespace -f k8s/monitoring/kube-prometheus-stack-values.yaml --wait
 	kubectl apply -f k8s/monitoring/servicemonitor.yaml
-	kubectl -n monitoring create configmap agentic-rag-dashboard \
+	kubectl -n monitoring create configmap agentic-rag-azure-dashboard \
 	  --from-file=agentic-rag.json=monitoring/grafana/provisioning/dashboards/agentic-rag.json \
 	  --dry-run=client -o yaml | kubectl label --local -f - grafana_dashboard=1 -o yaml | kubectl apply -f -
 
@@ -63,12 +63,12 @@ helm-install:
 	kind load docker-image $(IMAGE) --name $(CLUSTER)
 	kubectl create namespace $(NAMESPACE) --dry-run=client -o yaml | kubectl apply -f -
 	kubectl label namespace $(NAMESPACE) pod-security.kubernetes.io/enforce=restricted --overwrite
-	helm upgrade --install agentic-rag ./charts/agentic-rag -n $(NAMESPACE) \
-	  -f charts/agentic-rag/values-local.yaml --wait --timeout 5m
-	@echo "App: http://agentic-rag.localtest.me"
+	helm upgrade --install agentic-rag-azure ./charts/agentic-rag-azure -n $(NAMESPACE) \
+	  -f charts/agentic-rag-azure/values-local.yaml --wait --timeout 5m
+	@echo "App: http://agentic-rag-azure.localtest.me"
 
 helm-test:
-	helm test agentic-rag -n $(NAMESPACE) --logs
+	helm test agentic-rag-azure -n $(NAMESPACE) --logs
 
 k8s-down:
 	kind delete cluster --name $(CLUSTER)

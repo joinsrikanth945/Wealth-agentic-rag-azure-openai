@@ -2,20 +2,20 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: agentic-rag
+  name: agentic-rag-azure
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "25m"      # document uploads
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"   # agent answers can take a while
 spec:
   ingressClassName: nginx
   rules:
-    - host: agentic-rag.example.com
+    - host: agentic-rag-azure.example.com
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: agentic-rag
+                name: agentic-rag-azure
                 port:
                   name: http

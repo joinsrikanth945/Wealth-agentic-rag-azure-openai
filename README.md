@@ -128,7 +128,7 @@ Documents go through the same steps whether they come from the sample folder or 
 | Code quality | SonarQube Cloud (quality gate, coverage, security hotspots) |
 | Security scanning | gitleaks (secrets), pip-audit (dependencies), Trivy (container image) |
 | Deployment | Docker, Docker Hub, Azure Container Apps |
-| Kubernetes | Helm chart (`charts/agentic-rag`) and Kustomize (local and AKS overlays), kind, HPA, PodDisruptionBudget, NetworkPolicy, ingress-nginx, metrics-server |
+| Kubernetes | Helm chart (`charts/agentic-rag-azure`) and Kustomize (local and AKS overlays), kind, HPA, PodDisruptionBudget, NetworkPolicy, ingress-nginx, metrics-server |
 | Monitoring | Prometheus, Grafana, prometheus-fastapi-instrumentator, custom agent metrics; kube-prometheus-stack (Helm) with a ServiceMonitor on Kubernetes |
 
 ---
@@ -183,7 +183,7 @@ Wealth-agentic-rag/
 ├── monitoring/                # Prometheus config and Grafana dashboard (docker compose)
 ├── docker-compose.yml         # App + Prometheus + Grafana on your machine
 ├── k8s/                       # Kubernetes: Kustomize base + overlays, monitoring, kind config (see k8s/README.md)
-├── charts/agentic-rag/        # Helm chart for the app (see charts/agentic-rag/README.md)
+├── charts/agentic-rag-azure/        # Helm chart for the app (see charts/agentic-rag-azure/README.md)
 ├── Makefile                   # Shortcuts for the local Kubernetes cluster
 ├── templates/index.html       # Web interface
 ├── static/                    # CSS and JavaScript for the interface
@@ -358,7 +358,7 @@ The same dashboard runs in two setups. They are separate, so watch the one that 
 | | docker compose | Kubernetes |
 |---|---|---|
 | Start | `docker compose up -d --build` | `helm` install, see [k8s/README.md](k8s/README.md#monitoring) |
-| App | http://localhost:8080 | http://agentic-rag.localtest.me |
+| App | http://localhost:8080 | http://agentic-rag-azure.localtest.me |
 | Grafana | http://localhost:3000 | http://localhost:3001 (port-forward) |
 | Prometheus | http://localhost:9090 | http://localhost:9091 (port-forward) |
 | Finds the app by | Fixed targets in `monitoring/prometheus/prometheus.yml` | A ServiceMonitor, automatically |
@@ -520,7 +520,7 @@ flowchart LR
 | Area | What's in place |
 |---|---|
 | Manifests | Kustomize `base` + `local` and `aks` overlays in [`k8s/`](k8s/README.md) |
-| Helm chart | [`charts/agentic-rag`](charts/agentic-rag/README.md): the same setup as a chart, with `values-local.yaml` and `values-aks.yaml`, a `helm test`, an optional ServiceMonitor and the Grafana dashboard |
+| Helm chart | [`charts/agentic-rag-azure`](charts/agentic-rag-azure/README.md): the same setup as a chart, with `values-local.yaml` and `values-aks.yaml`, a `helm test`, an optional ServiceMonitor and the Grafana dashboard |
 | Security | Non-root, read-only root filesystem, all capabilities dropped, no service-account token, `restricted` Pod Security Standard, NetworkPolicy (in: HTTP only; out: DNS + HTTPS only) |
 | Reliability | Startup, readiness and liveness probes on `/api/health`; zero-downtime rolling updates; PodDisruptionBudget; pods spread across nodes |
 | Scaling | HorizontalPodAutoscaler on CPU, with metrics-server |
@@ -531,26 +531,26 @@ flowchart LR
 Quick start on Windows (PowerShell), with Docker Desktop running and `kind`, `kubectl` and `helm` installed ([how](k8s/README.md#1-install-the-tools)):
 
 ```powershell
-kind create cluster --name agentic-rag --config k8s/kind-config.yaml
+kind create cluster --name agentic-rag-azure --config k8s/kind-config.yaml
 # ingress controller + metrics-server: see k8s/README.md step 3
-kubectl create namespace agentic-rag
-kubectl -n agentic-rag create secret generic agentic-rag-secrets --from-env-file=.env
-docker build -t agentic-rag:local .
-kind load docker-image agentic-rag:local --name agentic-rag
+kubectl create namespace agentic-rag-azure
+kubectl -n agentic-rag-azure create secret generic agentic-rag-azure-secrets --from-env-file=.env
+docker build -t agentic-rag-azure:local .
+kind load docker-image agentic-rag-azure:local --name agentic-rag-azure
 kubectl apply -k k8s/overlays/local
-# open http://agentic-rag.localtest.me
+# open http://agentic-rag-azure.localtest.me
 ```
 
 Or with the Helm chart instead of `kubectl apply -k`:
 
 ```powershell
-helm upgrade --install agentic-rag ./charts/agentic-rag -n agentic-rag -f charts/agentic-rag/values-local.yaml
-helm test agentic-rag -n agentic-rag
+helm upgrade --install agentic-rag-azure ./charts/agentic-rag-azure -n agentic-rag-azure -f charts/agentic-rag-azure/values-local.yaml
+helm test agentic-rag-azure -n agentic-rag-azure
 ```
 
 On macOS, Linux or WSL: `make k8s-up && make k8s-secrets && make k8s-deploy && make k8s-monitoring` (or `make helm-install` instead of `k8s-deploy`).
 
-[k8s/README.md](k8s/README.md) has the full walkthrough, monitoring, troubleshooting and the AKS steps; [charts/agentic-rag/README.md](charts/agentic-rag/README.md) covers the Helm chart.
+[k8s/README.md](k8s/README.md) has the full walkthrough, monitoring, troubleshooting and the AKS steps; [charts/agentic-rag-azure/README.md](charts/agentic-rag-azure/README.md) covers the Helm chart.
 
 ---
 

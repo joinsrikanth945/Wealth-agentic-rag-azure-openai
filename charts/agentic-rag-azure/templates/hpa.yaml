@@ -2,14 +2,14 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "agentic-rag.fullname" . }}
+  name: {{ include "agentic-rag-azure.fullname" . }}
   labels:
-    {{- include "agentic-rag.labels" . | nindent 4 }}
+    {{- include "agentic-rag-azure.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "agentic-rag.fullname" . }}
+    name: {{ include "agentic-rag-azure.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:

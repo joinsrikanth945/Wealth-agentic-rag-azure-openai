@@ -1,9 +1,9 @@
 # Non-secret settings, read by app/core/config.py (pydantic-settings maps NAME -> name).
-# API keys live in the Secret "agentic-rag-secrets" (see k8s/README.md), never here.
+# API keys live in the Secret "agentic-rag-azure-secrets" (see k8s/README.md), never here.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: agentic-rag-config
+  name: agentic-rag-azure-config
 data:
   APP_ENV: "production"
   PORT: "8080"
@@ -11,7 +11,7 @@ data:
   LLM_PROVIDER: "azure"
   # Writable paths: the container's root filesystem is read-only,
   # so the audit database and uploads go to the mounted volume
-  AUDIT_DB_PATH: "/var/lib/agentic-rag/audit.db"
-  UPLOAD_DIR: "/var/lib/agentic-rag/uploads"
+  AUDIT_DB_PATH: "/var/lib/agentic-rag-azure/audit.db"
+  UPLOAD_DIR: "/var/lib/agentic-rag-azure/uploads"
   # Libraries that cache files (e.g. tokenizers) write under HOME
   HOME: "/tmp"

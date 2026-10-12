@@ -11,10 +11,12 @@ on:
       - "charts/**"        # and never redeploy the Azure app
       - "Makefile"
       - ".gitignore"
+      - ".github/workflows/kubernetes.yml"
   pull_request:            # pull requests run the checks only, never deploy
     paths-ignore:
       - "k8s/**"
       - "charts/**"
+      - ".github/workflows/kubernetes.yml"
 
 concurrency:
   group: deploy-main       # one pipeline at a time

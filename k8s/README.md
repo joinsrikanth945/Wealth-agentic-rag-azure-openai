@@ -9,9 +9,9 @@ prove the manifests work, and you can run the same setup on your own machine for
 
 There are two ways to deploy the app, and both give the same result:
 
-| | Kustomize (this folder) | Helm chart ([`charts/agentic-rag`](../charts/agentic-rag/README.md)) |
+| | Kustomize (this folder) | Helm chart ([`charts/agentic-rag-azure`](../charts/agentic-rag-azure/README.md)) |
 |---|---|---|
-| Deploy | `kubectl apply -k k8s/overlays/local` | `helm upgrade --install agentic-rag ./charts/agentic-rag -n agentic-rag -f charts/agentic-rag/values-local.yaml` |
+| Deploy | `kubectl apply -k k8s/overlays/local` | `helm upgrade --install agentic-rag-azure ./charts/agentic-rag-azure -n agentic-rag-azure -f charts/agentic-rag-azure/values-local.yaml` |
 | Per-environment settings | Overlays (`overlays/local`, `overlays/aks`) | Values files (`values-local.yaml`, `values-aks.yaml`) |
 | Upgrade history and rollback | No (use Git) | Yes: `helm history`, `helm rollback` |
 | Built-in test | No | `helm test` |
@@ -49,7 +49,7 @@ k8s/
 │   ├── networkpolicy.yaml      in: HTTP only; out: DNS + HTTPS only
 │   └── kustomization.yaml      lists the files above
 ├── overlays/
-│   ├── local/                  kind/minikube: local image, 1 pod, agentic-rag.localtest.me
+│   ├── local/                  kind/minikube: local image, 1 pod, agentic-rag-azure.localtest.me
 │   └── aks/                    Azure Kubernetes Service: Docker Hub image, 2-5 pods
 ├── monitoring/
 │   ├── kube-prometheus-stack-values.yaml   Prometheus + Grafana via Helm
@@ -60,7 +60,7 @@ k8s/
 ```mermaid
 flowchart LR
     U([Browser]) --> I[Ingress<br/>ingress-nginx]
-    I --> S[Service<br/>agentic-rag:80]
+    I --> S[Service<br/>agentic-rag-azure:80]
     S --> P1[Pod]
     S --> P2[Pod]
     H[HPA] -. scales .-> P1
@@ -79,7 +79,7 @@ them and applies the result.
 |---|---|
 | Secrets | API keys are a Kubernetes Secret built from your local `.env`; nothing secret is committed. On AKS, the next step is Azure Key Vault with the Secrets Store CSI driver. |
 | Security | Runs as UID 10001, read-only root filesystem, all Linux capabilities dropped, no privilege escalation, no service-account token, namespace enforces the `restricted` Pod Security Standard. |
-| Writable storage | The SQLite audit log and uploads go to a per-pod volume at `/var/lib/agentic-rag` (set through `AUDIT_DB_PATH` and `UPLOAD_DIR`). Each pod has its own audit log, reset when the pod is replaced; a managed database would make it shared and durable. The knowledge base lives in Pinecone, so pods are otherwise stateless. |
+| Writable storage | The SQLite audit log and uploads go to a per-pod volume at `/var/lib/agentic-rag-azure` (set through `AUDIT_DB_PATH` and `UPLOAD_DIR`). Each pod has its own audit log, reset when the pod is replaced; a managed database would make it shared and durable. The knowledge base lives in Pinecone, so pods are otherwise stateless. |
 | Availability | Rolling updates with `maxUnavailable: 0`, readiness/liveness/startup probes on `/api/health` (the startup probe allows up to 2 minutes for LangChain to load), pods spread across nodes, PodDisruptionBudget. |
 | Scaling | HorizontalPodAutoscaler on CPU (needs metrics-server). |
 | Observability | `kube-prometheus-stack` via Helm; a ServiceMonitor scrapes `/metrics` every 15 s; the existing Grafana dashboard (`monitoring/grafana/.../agentic-rag.json`) is loaded unchanged. |
@@ -119,8 +119,8 @@ kind version; helm version; kubectl version --client
 ### 2. Create the cluster
 
 ```powershell
-kind create cluster --name agentic-rag --config k8s/kind-config.yaml
-kubectl config current-context        # should print: kind-agentic-rag
+kind create cluster --name agentic-rag-azure --config k8s/kind-config.yaml
+kubectl config current-context        # should print: kind-agentic-rag-azure
 ```
 
 ### 3. Ingress controller and metrics-server
@@ -149,37 +149,37 @@ For Azure OpenAI, `.env` needs `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, 
 `TAVILY_API_KEY` and `ADMIN_API_KEY` (the ConfigMap already sets `LLM_PROVIDER=azure`). Then:
 
 ```powershell
-kubectl create namespace agentic-rag
-kubectl -n agentic-rag create secret generic agentic-rag-secrets --from-env-file=.env
+kubectl create namespace agentic-rag-azure
+kubectl -n agentic-rag-azure create secret generic agentic-rag-azure-secrets --from-env-file=.env
 ```
 
 ### 5. Build and deploy
 
 ```powershell
-docker build -t agentic-rag:local .
-kind load docker-image agentic-rag:local --name agentic-rag
+docker build -t agentic-rag-azure:local .
+kind load docker-image agentic-rag-azure:local --name agentic-rag-azure
 kubectl apply -k k8s/overlays/local
-kubectl -n agentic-rag rollout status deployment/agentic-rag --timeout=240s
-kubectl -n agentic-rag get pods          # 1/1 Running
+kubectl -n agentic-rag-azure rollout status deployment/agentic-rag-azure --timeout=240s
+kubectl -n agentic-rag-azure get pods          # 1/1 Running
 ```
 
 ### 6. Open the app
 
-`agentic-rag.localtest.me` is a public DNS name that points to `127.0.0.1`. Some routers and
+`agentic-rag-azure.localtest.me` is a public DNS name that points to `127.0.0.1`. Some routers and
 providers don't resolve it; if the browser says "site can't be reached", add it to the Windows
 hosts file (opens an administrator window; click **Yes**):
 
 ```powershell
-Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command "Add-Content -Path C:\Windows\System32\drivers\etc\hosts -Value \"`r`n127.0.0.1 agentic-rag.localtest.me\"; ipconfig /flushdns"'
+Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command "Add-Content -Path C:\Windows\System32\drivers\etc\hosts -Value \"`r`n127.0.0.1 agentic-rag-azure.localtest.me\"; ipconfig /flushdns"'
 ```
 
-Then open **http://agentic-rag.localtest.me**. Without changing the hosts file you can use
-`kubectl -n agentic-rag port-forward svc/agentic-rag 8081:80` and open http://localhost:8081.
+Then open **http://agentic-rag-azure.localtest.me**. Without changing the hosts file you can use
+`kubectl -n agentic-rag-azure port-forward svc/agentic-rag-azure 8081:80` and open http://localhost:8081.
 
 Check it from the command line:
 
 ```powershell
-curl.exe http://agentic-rag.localtest.me/api/health
+curl.exe http://agentic-rag-azure.localtest.me/api/health
 ```
 
 ## Monitoring
@@ -195,16 +195,16 @@ helm upgrade --install monitoring prometheus-community/kube-prometheus-stack `
   -f k8s/monitoring/kube-prometheus-stack-values.yaml --wait --timeout 10m
 
 kubectl apply -f k8s/monitoring/servicemonitor.yaml
-kubectl -n monitoring create configmap agentic-rag-dashboard `
+kubectl -n monitoring create configmap agentic-rag-azure-dashboard `
   --from-file=agentic-rag.json=monitoring/grafana/provisioning/dashboards/agentic-rag.json
-kubectl -n monitoring label configmap agentic-rag-dashboard grafana_dashboard=1
+kubectl -n monitoring label configmap agentic-rag-azure-dashboard grafana_dashboard=1
 ```
 
 | Piece | What it does |
 |---|---|
 | `kube-prometheus-stack` (Helm chart) | Prometheus, Grafana, Alertmanager, the Prometheus Operator, kube-state-metrics and node-exporter |
 | `kube-prometheus-stack-values.yaml` | Lets Prometheus use ServiceMonitors from every namespace; Grafana loads ConfigMaps labelled `grafana_dashboard` as dashboards; data-source uid `prometheus` to match the dashboard; small resource requests for a laptop |
-| `servicemonitor.yaml` | "Scrape the `http` port of the Service labelled `agentic-rag`, path `/metrics`, every 15 s" |
+| `servicemonitor.yaml` | "Scrape the `http` port of the Service labelled `agentic-rag-azure`, path `/metrics`, every 15 s" |
 | Dashboard ConfigMap | The same dashboard file used by docker compose, picked up automatically |
 
 **Open Grafana** in its own PowerShell window and leave it running (port 3001, so it doesn't
@@ -229,7 +229,7 @@ $questions = @(
 )
 foreach ($q in $questions) {
   $body = @{ question = $q } | ConvertTo-Json
-  $r = Invoke-RestMethod -Uri http://agentic-rag.localtest.me/api/chat -Method Post -Body $body -ContentType "application/json"
+  $r = Invoke-RestMethod -Uri http://agentic-rag-azure.localtest.me/api/chat -Method Post -Body $body -ContentType "application/json"
   Write-Host "$q  ->  $($r.source_used)"
 }
 ```
@@ -240,45 +240,45 @@ foreach ($q in $questions) {
 kubectl -n monitoring port-forward svc/monitoring-kube-prometheus-prometheus 9091:9090
 ```
 
-Open http://localhost:9091, **Status → Targets**: the `agentic-rag` target should be **UP**.
+Open http://localhost:9091, **Status → Targets**: the `agentic-rag-azure` target should be **UP**.
 
 > **Two Grafanas.** docker compose has its own Prometheus + Grafana (ports 9090/3000) that watch
 > the docker compose app on `localhost:8080` and the Azure app. Questions asked at
-> `agentic-rag.localtest.me` only show on the Kubernetes Grafana (`localhost:3001`). In Grafana,
+> `agentic-rag-azure.localtest.me` only show on the Kubernetes Grafana (`localhost:3001`). In Grafana,
 > **Connections → Data sources → Prometheus** tells them apart: `http://prometheus:9090` is docker
 > compose; `http://monitoring-kube-prometheus-prometheus.monitoring:9090` is Kubernetes.
 
 ## Day-to-day commands
 
 ```powershell
-kubectl -n agentic-rag get pods,svc,ingress,hpa,pdb          # what's running
-kubectl -n agentic-rag logs -f deployment/agentic-rag        # live logs
-kubectl -n agentic-rag describe pod <pod-name>               # why a pod is unhappy
-kubectl -n agentic-rag delete pod -l app.kubernetes.io/component=api   # self-healing demo
-kubectl -n agentic-rag scale deployment/agentic-rag --replicas=3       # scaling demo
-kubectl -n agentic-rag get hpa                               # autoscaler status
+kubectl -n agentic-rag-azure get pods,svc,ingress,hpa,pdb          # what's running
+kubectl -n agentic-rag-azure logs -f deployment/agentic-rag-azure        # live logs
+kubectl -n agentic-rag-azure describe pod <pod-name>               # why a pod is unhappy
+kubectl -n agentic-rag-azure delete pod -l app.kubernetes.io/component=api   # self-healing demo
+kubectl -n agentic-rag-azure scale deployment/agentic-rag-azure --replicas=3       # scaling demo
+kubectl -n agentic-rag-azure get hpa                               # autoscaler status
 helm list -A                                                 # Helm releases
 ```
 
 After editing `.env`:
 
 ```powershell
-kubectl -n agentic-rag create secret generic agentic-rag-secrets --from-env-file=.env --dry-run=client -o yaml | kubectl apply -f -
-kubectl -n agentic-rag rollout restart deployment/agentic-rag
+kubectl -n agentic-rag-azure create secret generic agentic-rag-azure-secrets --from-env-file=.env --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n agentic-rag-azure rollout restart deployment/agentic-rag-azure
 ```
 
 After changing the code:
 
 ```powershell
-docker build -t agentic-rag:local .
-kind load docker-image agentic-rag:local --name agentic-rag
-kubectl -n agentic-rag rollout restart deployment/agentic-rag
+docker build -t agentic-rag-azure:local .
+kind load docker-image agentic-rag-azure:local --name agentic-rag-azure
+kubectl -n agentic-rag-azure rollout restart deployment/agentic-rag-azure
 ```
 
 Free the memory when you're done (`docker compose stop` also helps if that stack is running):
 
 ```powershell
-kind delete cluster --name agentic-rag
+kind delete cluster --name agentic-rag-azure
 ```
 
 kind's default network plugin doesn't enforce NetworkPolicies; AKS with Azure CNI or Calico does.
@@ -289,12 +289,12 @@ kind's default network plugin doesn't enforce NetworkPolicies; AKS with Azure CN
 |---|---|---|
 | `kubectl get pods`: "the server could not find the requested resource" | No cluster yet (`kubectl config current-context` says "not set"), so kubectl falls back to `localhost:8080`, which is the docker compose app | Create the cluster (step 2) |
 | `kind` / `winget` "is not recognized" | Tool not installed, or the window was opened before installing | Use the download method in step 1, or reopen PowerShell |
-| Browser: "site can't be reached" for `agentic-rag.localtest.me`, but `curl.exe -H "Host: agentic-rag.localtest.me" http://localhost/api/health` works | Your network doesn't resolve `localtest.me` | Add it to the hosts file (step 6) or use port-forward |
+| Browser: "site can't be reached" for `agentic-rag-azure.localtest.me`, but `curl.exe -H "Host: agentic-rag-azure.localtest.me" http://localhost/api/health` works | Your network doesn't resolve `localtest.me` | Add it to the hosts file (step 6) or use port-forward |
 | Health check shows the app name with extra quotes; LLM calls fail with 401 | Quotes in `.env` values are kept by Kubernetes | Remove the quotes, re-create the Secret, restart the deployment |
 | Dashboard doesn't change after questions | Watching the docker compose Grafana (`localhost:3000`) | Use the Kubernetes Grafana on `localhost:3001` |
 | `localhost:3001` doesn't open | The port-forward isn't running | Run the port-forward in its own window and leave it open |
-| Pod stuck in `ImagePullBackOff` | The image wasn't loaded into kind | `kind load docker-image agentic-rag:local --name agentic-rag` |
-| Pod in `CrashLoopBackOff` | The app fails at start-up | `kubectl -n agentic-rag logs deployment/agentic-rag --previous` |
+| Pod stuck in `ImagePullBackOff` | The image wasn't loaded into kind | `kind load docker-image agentic-rag-azure:local --name agentic-rag-azure` |
+| Pod in `CrashLoopBackOff` | The app fails at start-up | `kubectl -n agentic-rag-azure logs deployment/agentic-rag-azure --previous` |
 | `kind create cluster` fails on port 80 | Another program (IIS, Skype, a web server) uses port 80 | Stop it, or change `hostPort` in `kind-config.yaml` (e.g. 8088) and browse to `:8088` |
 
 ## Deploying to AKS later
@@ -303,18 +303,18 @@ The `aks` overlay is ready but not wired to CI, so nothing is created or billed 
 Roughly $50-60/month for one small node on the Free tier; `az aks stop` when idle.
 
 ```bash
-az aks create -g agentic-rag-rg -n agentic-rag-aks --tier free \
+az aks create -g agentic-rag-rg -n agentic-rag-azure-aks --tier free \
   --node-count 1 --node-vm-size Standard_B2s --network-policy azure --generate-ssh-keys
-az aks get-credentials -g agentic-rag-rg -n agentic-rag-aks
+az aks get-credentials -g agentic-rag-rg -n agentic-rag-azure-aks
 helm upgrade --install ingress-nginx ingress-nginx --repo https://kubernetes.github.io/ingress-nginx \
   -n ingress-nginx --create-namespace
-kubectl create namespace agentic-rag
-kubectl -n agentic-rag create secret generic agentic-rag-secrets --from-env-file=.env
+kubectl create namespace agentic-rag-azure
+kubectl -n agentic-rag-azure create secret generic agentic-rag-azure-secrets --from-env-file=.env
 # set your host in k8s/overlays/aks/kustomization.yaml, then:
 kubectl apply -k k8s/overlays/aks
 
-az aks stop  -g agentic-rag-rg -n agentic-rag-aks   # stop paying for nodes when idle
-az aks start -g agentic-rag-rg -n agentic-rag-aks
+az aks stop  -g agentic-rag-rg -n agentic-rag-azure-aks   # stop paying for nodes when idle
+az aks start -g agentic-rag-rg -n agentic-rag-azure-aks
 ```
 
 ## CI

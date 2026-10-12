@@ -1,4 +1,4 @@
-# Default settings for the agentic-rag chart.
+# Default settings for the agentic-rag-azure chart.
 # Override per environment with -f values-local.yaml / -f values-aks.yaml, or --set key=value.
 
 replicaCount: 2
@@ -18,9 +18,9 @@ config:
   PORT: "8080"
 
 # API keys: an existing Secret, created from .env with
-#   kubectl -n <ns> create secret generic agentic-rag-secrets --from-env-file=.env
+#   kubectl -n <ns> create secret generic agentic-rag-azure-secrets --from-env-file=.env
 # The chart never stores keys itself.
-existingSecret: agentic-rag-secrets
+existingSecret: agentic-rag-azure-secrets
 
 service:
   type: ClusterIP
@@ -31,11 +31,11 @@ containerPort: 8080
 ingress:
   enabled: true
   className: nginx
-  host: agentic-rag.example.com
+  host: agentic-rag-azure.example.com
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "25m"      # document uploads
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"   # agent answers can take a while
-  tls: []                  # e.g. [{secretName: agentic-rag-tls, hosts: [agentic-rag.example.com]}]
+  tls: []                  # e.g. [{secretName: agentic-rag-azure-tls, hosts: [agentic-rag-azure.example.com]}]
 
 resources:
   requests:

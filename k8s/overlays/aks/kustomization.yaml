@@ -8,23 +8,23 @@ resources:
   - ../../base
 
 images:
-  - name: agentic-rag
+  - name: agentic-rag-azure
     newName: docker.io/joinsrikanth945/agentic-rag
-    newTag: latest   # CI pins this to the commit SHA: kustomize edit set image agentic-rag=...:<sha>
+    newTag: latest   # CI pins this to the commit SHA: kustomize edit set image agentic-rag-azure=...:<sha>
 
 patches:
   - target:
       kind: Deployment
-      name: agentic-rag
+      name: agentic-rag-azure
     patch: |-
       - op: replace
         path: /spec/template/spec/containers/0/imagePullPolicy
         value: Always
   - target:
       kind: Ingress
-      name: agentic-rag
+      name: agentic-rag-azure
     patch: |-
       # Replace with your DNS name, e.g. <label>.<region>.cloudapp.azure.com
       - op: replace
         path: /spec/rules/0/host
-        value: agentic-rag.example.com
+        value: agentic-rag-azure.example.com

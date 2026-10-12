@@ -3,16 +3,16 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: agentic-rag
-  namespace: agentic-rag
+  name: agentic-rag-azure
+  namespace: agentic-rag-azure
   labels:
-    app.kubernetes.io/name: agentic-rag
+    app.kubernetes.io/name: agentic-rag-azure
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: agentic-rag
+      app.kubernetes.io/name: agentic-rag-azure
   namespaceSelector:
-    matchNames: ["agentic-rag"]
+    matchNames: ["agentic-rag-azure"]
   endpoints:
     - port: http
       path: /metrics

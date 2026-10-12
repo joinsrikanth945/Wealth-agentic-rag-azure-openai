@@ -2,12 +2,12 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: agentic-rag
+  name: agentic-rag-azure
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: agentic-rag
+    name: agentic-rag-azure
   minReplicas: 2
   maxReplicas: 5
   metrics:

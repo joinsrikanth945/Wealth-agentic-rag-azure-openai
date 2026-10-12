@@ -1,14 +1,14 @@
 # Local kind/minikube cluster: image built on your machine, one pod, small requests.
-#   helm upgrade --install agentic-rag ./charts/agentic-rag -n agentic-rag -f charts/agentic-rag/values-local.yaml
+#   helm upgrade --install agentic-rag-azure ./charts/agentic-rag-azure -n agentic-rag-azure -f charts/agentic-rag-azure/values-local.yaml
 replicaCount: 1
 
 image:
-  repository: agentic-rag
+  repository: agentic-rag-azure
   tag: local
   pullPolicy: IfNotPresent
 
 ingress:
-  host: agentic-rag.localtest.me
+  host: agentic-rag-azure.localtest.me
 
 resources:
   requests:

@@ -43,20 +43,20 @@ jobs:
 
       - name: Lint the Helm chart
         run: |
-          helm lint charts/agentic-rag --strict
-          helm lint charts/agentic-rag --strict -f charts/agentic-rag/values-local.yaml
-          helm lint charts/agentic-rag --strict -f charts/agentic-rag/values-aks.yaml
+          helm lint charts/agentic-rag-azure --strict
+          helm lint charts/agentic-rag-azure --strict -f charts/agentic-rag-azure/values-local.yaml
+          helm lint charts/agentic-rag-azure --strict -f charts/agentic-rag-azure/values-aks.yaml
 
       - name: Validate the rendered Helm chart
         run: |
           for values in values.yaml values-local.yaml values-aks.yaml; do
-            echo "== charts/agentic-rag/$values"
-            helm template agentic-rag charts/agentic-rag -n agentic-rag -f "charts/agentic-rag/$values" \
+            echo "== charts/agentic-rag-azure/$values"
+            helm template agentic-rag-azure charts/agentic-rag-azure -n agentic-rag-azure -f "charts/agentic-rag-azure/$values" \
               | ./kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.33.0 -
           done
 
       - name: Check the chart's dashboard matches the main dashboard
-        run: diff monitoring/grafana/provisioning/dashboards/agentic-rag.json charts/agentic-rag/dashboards/agentic-rag.json
+        run: diff monitoring/grafana/provisioning/dashboards/agentic-rag.json charts/agentic-rag-azure/dashboards/agentic-rag.json
 
   # 2. Deploy with Kustomize to a throwaway kind cluster and check the app answers
   kustomize-on-kind:
@@ -69,21 +69,21 @@ jobs:
       - name: Create a kind cluster
         uses: helm/kind-action@v1
         with:
-          cluster_name: agentic-rag
+          cluster_name: agentic-rag-azure
 
       - name: Build the image and load it into the cluster
         run: |
-          docker build -t agentic-rag:local .
-          kind load docker-image agentic-rag:local --name agentic-rag
+          docker build -t agentic-rag-azure:local .
+          kind load docker-image agentic-rag-azure:local --name agentic-rag-azure
 
       - name: Deploy the app
         run: |
           kubectl apply -k k8s/overlays/local
-          kubectl -n agentic-rag rollout status deployment/agentic-rag --timeout=240s
+          kubectl -n agentic-rag-azure rollout status deployment/agentic-rag-azure --timeout=240s
 
       - name: Smoke test through the Service
         run: |
-          kubectl -n agentic-rag port-forward svc/agentic-rag 8080:80 &
+          kubectl -n agentic-rag-azure port-forward svc/agentic-rag-azure 8080:80 &
           sleep 5
           curl -fsS http://localhost:8080/api/health
           curl -fsS http://localhost:8080/metrics -o metrics.txt
@@ -93,9 +93,9 @@ jobs:
       - name: Show what went wrong
         if: failure()
         run: |
-          kubectl -n agentic-rag get pods,svc,events -o wide || true
-          kubectl -n agentic-rag describe pods || true
-          kubectl -n agentic-rag logs deployment/agentic-rag --all-containers --tail=200 || true
+          kubectl -n agentic-rag-azure get pods,svc,events -o wide || true
+          kubectl -n agentic-rag-azure describe pods || true
+          kubectl -n agentic-rag-azure logs deployment/agentic-rag-azure --all-containers --tail=200 || true
 
   # 3. Install the Helm chart on a throwaway kind cluster, then upgrade, test and roll back
   helm-on-kind:
@@ -113,39 +113,39 @@ jobs:
       - name: Create a kind cluster
         uses: helm/kind-action@v1
         with:
-          cluster_name: agentic-rag
+          cluster_name: agentic-rag-azure
 
       - name: Build the image and load it into the cluster
         run: |
-          docker build -t agentic-rag:local .
-          kind load docker-image agentic-rag:local --name agentic-rag
+          docker build -t agentic-rag-azure:local .
+          kind load docker-image agentic-rag-azure:local --name agentic-rag-azure
 
       - name: Install the chart
         # ServiceMonitor and dashboard need kube-prometheus-stack, which this cluster doesn't have
         run: |
-          kubectl create namespace agentic-rag
-          kubectl label namespace agentic-rag pod-security.kubernetes.io/enforce=restricted
-          helm install agentic-rag charts/agentic-rag -n agentic-rag \
-            -f charts/agentic-rag/values-local.yaml \
+          kubectl create namespace agentic-rag-azure
+          kubectl label namespace agentic-rag-azure pod-security.kubernetes.io/enforce=restricted
+          helm install agentic-rag-azure charts/agentic-rag-azure -n agentic-rag-azure \
+            -f charts/agentic-rag-azure/values-local.yaml \
             --set serviceMonitor.enabled=false --set grafanaDashboard.enabled=false \
             --wait --timeout 5m
 
       - name: Run the chart's tests (helm test)
-        run: helm test agentic-rag -n agentic-rag --logs
+        run: helm test agentic-rag-azure -n agentic-rag-azure --logs
 
       - name: Upgrade, then roll back
         run: |
-          helm upgrade agentic-rag charts/agentic-rag -n agentic-rag --reuse-values \
+          helm upgrade agentic-rag-azure charts/agentic-rag-azure -n agentic-rag-azure --reuse-values \
             --set config.APP_ENV=ci-upgrade --wait --timeout 5m
-          helm rollback agentic-rag 1 -n agentic-rag --wait --timeout 5m
-          helm history agentic-rag -n agentic-rag
-          helm test agentic-rag -n agentic-rag --logs
+          helm rollback agentic-rag-azure 1 -n agentic-rag-azure --wait --timeout 5m
+          helm history agentic-rag-azure -n agentic-rag-azure
+          helm test agentic-rag-azure -n agentic-rag-azure --logs
 
       - name: Show what went wrong
         if: failure()
         run: |
-          helm list -n agentic-rag || true
-          kubectl -n agentic-rag logs agentic-rag-test-health || true
-          kubectl -n agentic-rag get pods,svc,events -o wide || true
-          kubectl -n agentic-rag describe pods || true
-          kubectl -n agentic-rag logs deployment/agentic-rag --all-containers --tail=200 || true
+          helm list -n agentic-rag-azure || true
+          kubectl -n agentic-rag-azure logs agentic-rag-azure-test-health || true
+          kubectl -n agentic-rag-azure get pods,svc,events -o wide || true
+          kubectl -n agentic-rag-azure describe pods || true
+          kubectl -n agentic-rag-azure logs deployment/agentic-rag-azure --all-containers --tail=200 || true

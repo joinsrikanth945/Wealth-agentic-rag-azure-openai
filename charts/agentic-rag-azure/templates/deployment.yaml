@@ -1,9 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "agentic-rag.fullname" . }}
+  name: {{ include "agentic-rag-azure.fullname" . }}
   labels:
-    {{- include "agentic-rag.labels" . | nindent 4 }}
+    {{- include "agentic-rag-azure.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
@@ -16,7 +16,7 @@ spec:
       maxSurge: 1
   selector:
     matchLabels:
-      {{- include "agentic-rag.selectorLabels" . | nindent 6 }}
+      {{- include "agentic-rag-azure.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -26,7 +26,7 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        {{- include "agentic-rag.labels" . | nindent 8 }}
+        {{- include "agentic-rag-azure.labels" . | nindent 8 }}
     spec:
       automountServiceAccountToken: false
       securityContext:
@@ -38,17 +38,17 @@ spec:
           whenUnsatisfiable: ScheduleAnyway
           labelSelector:
             matchLabels:
-              {{- include "agentic-rag.selectorLabels" . | nindent 14 }}
+              {{- include "agentic-rag-azure.selectorLabels" . | nindent 14 }}
       containers:
         - name: api
-          image: {{ include "agentic-rag.image" . | quote }}
+          image: {{ include "agentic-rag-azure.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http
               containerPort: {{ .Values.containerPort }}
           envFrom:
             - configMapRef:
-                name: {{ include "agentic-rag.fullname" . }}
+                name: {{ include "agentic-rag-azure.fullname" . }}
             {{- if .Values.existingSecret }}
             - secretRef:
                 name: {{ .Values.existingSecret }}
@@ -79,7 +79,7 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           volumeMounts:
             - name: app-data
-              mountPath: /var/lib/agentic-rag
+              mountPath: /var/lib/agentic-rag-azure
             - name: tmp
               mountPath: /tmp
       volumes:

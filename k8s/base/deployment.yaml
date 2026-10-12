@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: agentic-rag
+  name: agentic-rag-azure
 spec:
   replicas: 2
   revisionHistoryLimit: 5
@@ -36,16 +36,16 @@ spec:
               app.kubernetes.io/component: api
       containers:
         - name: api
-          image: agentic-rag:local     # replaced per environment by the overlays
+          image: agentic-rag-azure:local     # replaced per environment by the overlays
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8080
           envFrom:
             - configMapRef:
-                name: agentic-rag-config
+                name: agentic-rag-azure-config
             - secretRef:
-                name: agentic-rag-secrets
+                name: agentic-rag-azure-secrets
                 optional: true          # the app still starts (health, UI) without keys
           resources:
             requests:
@@ -79,7 +79,7 @@ spec:
               drop: ["ALL"]
           volumeMounts:
             - name: app-data
-              mountPath: /var/lib/agentic-rag
+              mountPath: /var/lib/agentic-rag-azure
             - name: tmp
               mountPath: /tmp
       volumes:

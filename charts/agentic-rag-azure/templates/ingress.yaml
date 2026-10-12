@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "agentic-rag.fullname" . }}
+  name: {{ include "agentic-rag-azure.fullname" . }}
   labels:
-    {{- include "agentic-rag.labels" . | nindent 4 }}
+    {{- include "agentic-rag-azure.labels" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -23,7 +23,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "agentic-rag.fullname" . }}
+                name: {{ include "agentic-rag-azure.fullname" . }}
                 port:
                   name: http
 {{- end }}
