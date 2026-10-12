@@ -3,7 +3,7 @@ name: agentic-rag
 description: Agentic RAG assistant for wealth banking support (FastAPI, LangGraph, Azure OpenAI, Pinecone, Tavily)
 type: application
 # Version of the chart itself: bump it whenever anything in charts/agentic-rag changes
-version: 0.1.0
+version: 0.1.1
 # Version of the application it deploys (the Docker image)
 appVersion: "1.0.0"
 keywords: [rag, langgraph, fastapi, azure-openai, llm]

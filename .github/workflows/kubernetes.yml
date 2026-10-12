@@ -145,6 +145,7 @@ jobs:
         if: failure()
         run: |
           helm list -n agentic-rag || true
+          kubectl -n agentic-rag logs agentic-rag-test-health || true
           kubectl -n agentic-rag get pods,svc,events -o wide || true
           kubectl -n agentic-rag describe pods || true
           kubectl -n agentic-rag logs deployment/agentic-rag --all-containers --tail=200 || true
