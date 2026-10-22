@@ -1,3 +1,5 @@
+# Adapted from Enterprise IT Support Agentic RAG Copilot by Bappy Ahmed (Apache-2.0).
+# Modified by Sreekanth Dara, 2026.
 from typing import List, Literal
 from typing_extensions import TypedDict
 from pydantic import BaseModel, Field

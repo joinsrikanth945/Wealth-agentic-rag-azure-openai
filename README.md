@@ -573,4 +573,14 @@ On macOS, Linux or WSL: `make k8s-up && make k8s-secrets && make k8s-deploy && m
 
 ## Acknowledgements and license
 
-This project builds on an open-source Agentic RAG project, adapted to the wealth banking domain, extended with a test suite and a CI/CD and DevSecOps pipeline, and deployed to Azure. See [LICENSE](LICENSE) for the license and original copyright.
+This is the Azure OpenAI edition of [Wealth-agentic-rag](https://github.com/joinsrikanth945/Wealth-agentic-rag).
+
+Both editions are adapted from [Enterprise IT Support Agentic RAG Copilot](https://github.com/entbappy/Enterprise-IT-Support-Agentic-RAG-Copilot) by Bappy Ahmed ([@entbappy](https://github.com/entbappy)), licensed under the Apache License 2.0. The original provided the LangGraph agentic RAG workflow, the FastAPI app, the web interface, document ingestion, audit logging and the IT sample documents.
+
+My changes: adapted it to the wealth banking domain with new fictional sample documents (LumenWealth), moved it to Azure OpenAI, and added tests, a CI/CD and DevSecOps pipeline, and Azure deployment. Files adapted from the original project carry a header noting that they were modified.
+
+The LumenWealth documents in `data/sample_kb/` are fictional and written for this project; `company_it_handbook.md` and `service_desk_runbook.md` come from the original project. No real vendor or employer documentation is included.
+
+Copyright 2026 Sreekanth Dara (joinsrikanth945) for the modifications. Licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attribution details.
+
+The software is provided "as is", without warranty of any kind. It is a learning project and does not provide financial, legal or security advice.

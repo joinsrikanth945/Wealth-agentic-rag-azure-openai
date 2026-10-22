@@ -1,3 +1,5 @@
+# Adapted from Enterprise IT Support Agentic RAG Copilot by Bappy Ahmed (Apache-2.0).
+# Modified by Sreekanth Dara, 2026.
 import logging
 from typing import Literal
 from langchain_openai import AzureChatOpenAI, ChatOpenAI

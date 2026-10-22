@@ -1,3 +1,5 @@
+# Adapted from Enterprise IT Support Agentic RAG Copilot by Bappy Ahmed (Apache-2.0).
+# Modified by Sreekanth Dara, 2026.
 import time
 from pinecone import Pinecone , ServerlessSpec
 from langchain_openai import AzureOpenAIEmbeddings, OpenAIEmbeddings

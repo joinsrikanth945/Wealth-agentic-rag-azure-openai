@@ -1,0 +1,11 @@
+Wealth Agentic RAG - Azure OpenAI edition
+Copyright 2026 Sreekanth Dara (joinsrikanth945)
+
+This project includes code and sample documents adapted from
+Enterprise IT Support Agentic RAG Copilot by Bappy Ahmed (entbappy)
+https://github.com/entbappy/Enterprise-IT-Support-Agentic-RAG-Copilot
+licensed under the Apache License, Version 2.0.
+
+Modifications by Sreekanth Dara: adapted to the wealth banking domain with new
+fictional sample documents; moved to Azure OpenAI; added tests, a CI/CD and
+DevSecOps pipeline, and Azure deployment.

@@ -1,3 +1,5 @@
+# Adapted from Enterprise IT Support Agentic RAG Copilot by Bappy Ahmed (Apache-2.0).
+# Modified by Sreekanth Dara, 2026.
 from pathlib import Path
 from app.core.config import get_settings
 from app.services.ingestion import load_file, chunk_documents
